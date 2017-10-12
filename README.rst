@@ -16,7 +16,11 @@ Manager with API Gateway
 It routes external API requests from front-end services to individual agents.
 It also monitors and scales the cluster of multiple agents (a few tens to hundreds).
 
+<<<<<<< HEAD
 * Package namespace: ``backend.ai-gateway`` and ``backend.ai-manager``
+=======
+* Package namespace: ``ai.backend.gateway`` and ``ai.backend.manager``
+>>>>>>> dc3dfb6f6a1ae4bf36b2b9bd686f3946d6372858
 * https://github.com/lablup/backend.ai-manager
 
 Agent
@@ -25,15 +29,19 @@ Agent
 It manages individual server instances and launches/destroys Docker containers where REPL daemons (kernels) run.
 Each agent on a new EC2 instance self-registers itself to the instance registry via heartbeats.
 
+<<<<<<< HEAD
 * Package namespace: ``backend.ai-agent``
+=======
+* Package namespace: ``ai.backend.agent``
+>>>>>>> dc3dfb6f6a1ae4bf36b2b9bd686f3946d6372858
 * https://github.com/lablup/backend.ai-agent
 
-REPL
-~~~~
+Kernels
+~~~~~~~
 
-A set of small ZMQ-based REPL daemons in various programming languages and configurations.
-It also includes a sandbox implemented using ptrace-based sytem call filtering written in Go.
+A set of small ZeroMQ-based REPL daemons in various programming languages and configurations.
 
+<<<<<<< HEAD
 * https://github.com/lablup/backend.ai-repl
 * Each daemon is a separate program, usually named "run.{lang-specific-extension}".
 
@@ -43,6 +51,31 @@ Backend.AI Common
 A collection of utility modules commonly shared throughout Backend.AI projects.
 
 * Package namespaces: ``backend.ai-common``
+=======
+* https://github.com/lablup/backend.ai-kernels
+* Each daemon is a separate program, usually named "run.{lang-specific-extension}".
+
+Jail
+~~~~
+
+A programmable sandbox implemented using ptrace-based sytem call filtering written in Go.
+
+* https://github.com/lablup/backend.ai-jail
+
+Hook
+~~~~
+
+A set of libc overrides for resource control and web-based interactive stdin (paired with agents).
+
+* https://github.com/lablup/backend.ai-hook
+
+Commons
+~~~~~~~
+
+A collection of utility modules commonly shared throughout Backend.AI projects.
+
+* Package namespaces: ``ai.backend.common``
+>>>>>>> dc3dfb6f6a1ae4bf36b2b9bd686f3946d6372858
 * https://github.com/lablup/backend.ai-common
 
 
@@ -64,8 +97,13 @@ A client library to access the Backend.AI API servers with ease.
    * ``composer require lablup/backend.ai-client``
    * https://github.com/lablup/backend.ai-client-php
 
+<<<<<<< HEAD
 Backend.AI Media
 ~~~~~~~~~~~
+=======
+Media
+~~~~~
+>>>>>>> dc3dfb6f6a1ae4bf36b2b9bd686f3946d6372858
 
 The front-end support libraries to handle multi-media outputs (e.g., SVG plots, animated vector graphics)
 
@@ -77,13 +115,22 @@ The front-end support libraries to handle multi-media outputs (e.g., SVG plots, 
 Integrations with IDEs and Editors
 ----------------------------------
 
+<<<<<<< HEAD
 Backend.AI Jupyter Kernel
 ~~~~~~~~~~~~~~~~~~~~
+=======
+Jupyter Kernel
+~~~~~~~~~~~~~~
+>>>>>>> dc3dfb6f6a1ae4bf36b2b9bd686f3946d6372858
 
 Jupyter kernel integration of the Backend.AI Cloud API.
 
 * Package namespaces: ``backend.ai-integration``
+<<<<<<< HEAD
 * https://github.com/lablup/backend.ai-jupyter-kernel
+=======
+* https://github.com/lablup/backend.ai-integration-jupyter
+>>>>>>> dc3dfb6f6a1ae4bf36b2b9bd686f3946d6372858
 
 Visual Studio Code Extension
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~

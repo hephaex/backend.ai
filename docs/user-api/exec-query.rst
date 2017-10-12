@@ -32,6 +32,11 @@ Parameters
    * - ``code``
      - ``str``
      - A string of user-written code.  All non-ASCII data must be encoded in UTF-8 or any format acceptable by the kernel.
+   * - ``runId``
+     - ``str``
+     - A string of client-side unique identifier for this particular execution (run).
+       The client should keep the same value until this execution completely finishes with ``finished`` at the result's ``status`` field.
+       Also, the client should use a new value for the subsequent executions.
 
 **Example:**
 
@@ -39,7 +44,8 @@ Parameters
 
    {
      "type": "query",
-     "code": "print('Hello, world!')"
+     "code": "print('Hello, world!')",
+     "runId": "5facbf2f2697c1b7"
    }
 
 
@@ -237,12 +243,8 @@ You should make another API query with the ``code`` field filled with the user i
 Auto-completion
 ---------------
 
-* URI: ``/v2/kernel/:id``
+* URI: ``/v2/kernel/:id/complete``
 * Method: ``POST``
-
-.. warning::
-
-   This API is draft and may be changed without notices.
 
 Parameters
 """"""""""
@@ -257,9 +259,6 @@ Parameters
    * - ``:id``
      - ``slug``
      - The kernel ID.
-   * - ``mode``
-     - ``enum[str]``
-     - A constant string ``"complete"``.
    * - ``code``
      - ``str``
      - A string containing the code until the current cursor position.
@@ -281,7 +280,6 @@ Parameters
 .. code-block:: json
 
    {
-     "type": "complete",
      "code": "pri",
      "options": {
        "post": "\nprint(\"world\")\n",
@@ -332,3 +330,35 @@ Response
      ]
    }
 
+Interrupt
+---------
+
+* URI: ``/v2/kernel/:id/interrupt``
+* Method: ``POST``
+
+Parameters
+""""""""""
+
+.. list-table::
+   :widths: 15 5 80
+   :header-rows: 1
+
+   * - Parameter
+     - Type
+     - Description
+   * - ``:id``
+     - ``slug``
+     - The kernel ID.
+
+Response
+""""""""
+
+.. list-table::
+   :widths: 25 75
+   :header-rows: 1
+
+   * - HTTP Status Code
+     - Description
+   * - 204 No Content
+     - Sent the interrupt signal to the kernel.
+       Note that this does *not* guarantee the effectiveness of the interruption.

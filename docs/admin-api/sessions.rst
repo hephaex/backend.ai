@@ -1,55 +1,79 @@
-Kernel Session Monitoring
-=========================
+Compute Session Monitoring
+==========================
 
-Listing Kernel Sessions
+Full Admin
+----------
+
+Query Schema
+~~~~~~~~~~~~
+
+.. code-block:: text
+
+   type ComputeSession {
+     sess_id: String
+     id: UUID
+     status: String
+     status_info: String
+     created_at: DateTime
+     terminated_at: DateTime
+     agent: String
+     container_id: String
+     mem_slot: Int
+     cpu_slot: Int
+     gpu_slot: Int
+     num_queries: Int
+     cpu_used: Int
+     max_mem_bytes: Int
+     cur_mem_bytes: Int
+     net_rx_bytes: Int
+     net_tx_bytes: Int
+     io_read_bytes: Int
+     io_write_bytes: Int
+     lang: String
+     workers(status: String): [ComputeWorker]
+   }
+
+   type ComputeWorker {
+     sess_id: String
+     id: UUID
+     status: String
+     status_info: String
+     created_at: DateTime
+     terminated_at: DateTime
+     agent: String
+     container_id: String
+     mem_slot: Int
+     cpu_slot: Int
+     gpu_slot: Int
+     num_queries: Int
+     cpu_used: Int
+     max_mem_bytes: Int
+     cur_mem_bytes: Int
+     net_rx_bytes: Int
+     net_tx_bytes: Int
+     io_read_bytes: Int
+     io_write_bytes: Int
+   }
+
+   type root {
+     ...
+     compute_sessions(access_key: String, status: String): [ComputeSession]
+     compute_workers(sess_id: String!, status: String): [ComputeWorker]
+   }
+
+
+Restricted Owner Access
 -----------------------
 
-* URI: ``/v2/admin/sessions/:access_key``
-* Method: ``REPORT``
+Query Schema
+~~~~~~~~~~~~
 
-Parameters
-""""""""""
+It shares the same ``ComputeSession`` and ``ComputeWorker`` type, but with a slightly different root query type:
 
-.. list-table::
-   :widths: 15 5 80
-   :header-rows: 1
+.. code-block:: text
 
-   * - Parameter
-     - Type
-     - Description
-   * - ``:access_key``
-     - ``slug``
-     - The access key.
-   * - ``filter``
-     - ``object``
-     - :ref:`session-filter-object`
-   * - ``paging``
-     - ``object``
-     - :ref:`paging-query-object`
-
-Response
-""""""""
-
-.. list-table::
-   :widths: 25 75
-   :header-rows: 1
-
-   * - HTTP Status Code
-     - Description
-   * - 200 OK
-     - The list of kernel sessions is being returned.
-
-
-.. list-table::
-   :widths: 15 5 80
-   :header-rows: 1
-
-   * - Fields
-     - Type
-     - Values
-   * - ``paging``
-     - ``object``
-     - :ref:`paging-info-object`
-   * - ``items``
-     - ``object``
-     - A list of :ref:`session-item-object`
+   type root {
+     ...
+     compute_sessions(status: String): [ComputeSession]
+     compute_workers(sess_id: String!, status: String): [ComputeWorker]
+   }

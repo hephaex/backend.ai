@@ -1,213 +1,89 @@
 KeyPair Management
 ==================
 
-Listing KeyPairs
-----------------
+Full Admin
+----------
 
-* URI: ``/v2/admin/keypairs/:user``
-* Method: ``REPORT``
+Query Schema
+~~~~~~~~~~~~
 
-Returns the list of keypairs associated with the given user UUID.
+.. code-block:: text
 
-Parameters
-""""""""""
+   type KeyPair {
+     access_key: String
+     secret_key: String
+     is_active: Boolean
+     is_admin: Boolean
+     resource_policy: String
+     created_at: DateTime
+     last_used: DateTime
+     concurrency_limit: Int
+     concurrency_used: Int
+     rate_limit: Int
+     num_queries: Int
+     vfolders: [VirtualFolder]
+     compute_sessions(status: String): [ComputeSession]
+   }
 
-.. list-table::
-   :widths: 15 5 80
-   :header-rows: 1
+   type root {
+     ...
+     keypairs(user_id: Int!, is_active: Boolean): [KeyPair]
+   }
 
-   * - Parameter
-     - Type
-     - Description
-   * - ``:user``
-     - ``str``
-     - The associated user ID.
-   * - ``paging``
-     - ``object``
-     - :ref:`paging-query-object`
+Mutation Schema
+~~~~~~~~~~~~~~~
 
-Response
-""""""""
+.. code-block:: text
 
-.. list-table::
-   :widths: 25 75
-   :header-rows: 1
+   input KeyPairInput {
+     is_active: Boolean
+     resource_policy: String
+     concurrency_limit: Int
+     rate_limit: Int
+   }
 
-   * - HTTP Status Code
-     - Description
-   * - 200 OK
-     - The list of keypair is being returned.
+   type CreateKeyPair {
+     ok: Boolean
+     msg: String
+     keypair: KeyPair
+   }
 
-.. list-table::
-   :widths: 15 5 80
-   :header-rows: 1
+   type ModifyKeyPair {
+     ok: Boolean
+     msg: String
+   }
 
-   * - Fields
-     - Type
-     - Values
-   * - ``paging``
-     - ``object``
-     - :ref:`paging-info-object`
-   * - ``items``
-     - ``list[object]``
-     - A list of :ref:`keypair-item-object`
+   type DeleteKeyPair {
+     ok: Boolean
+     msg: String
+   }
 
-Creating KeyPair
-----------------
+   type root {
+     ...
+     create_keypair(user_id: Int!, props: KeyPairInput!): CreateKeyPair
+     modify_keypair(access_key: String!, props: KeyPairInput!): ModifyKeyPair
+     delete_keypair(access_key: String!): DeleteKeyPair
+   }
 
-* URI: ``/v2/admin/keypairs/:user/create``
-* Method: ``POST``
 
-Creates a new keypair associated with the given user UUID.
+Restricted Owner Access
+-----------------------
 
-Parameters
-""""""""""
+Query Schema
+~~~~~~~~~~~~
 
-.. list-table::
-   :widths: 15 5 80
-   :header-rows: 1
+It shares the same ``KeyPair`` type, but you cannot use ``user_id`` argument in the root query
+because the client can only query the keypair that is being used to make this API query.
+Also the returned value is always a single object.
 
-   * - Parameter
-     - Type
-     - Description
-   * - ``:user``
-     - ``str``
-     - The associated user ID.
-       The exact format would depend on your user management system.
-   * - ``isActive``
-     - ``bool``
-     - If specified, set the key's initial activation status after creation.
-       (optional, default: ``true``)
+.. code-block:: text
 
-Response
-""""""""
+   type root {
+     ...
+     keypair(): KeyPair
+   }
 
-.. list-table::
-   :widths: 25 75
-   :header-rows: 1
+Mutation Schema
+~~~~~~~~~~~~~~~
 
-   * - HTTP Status Code
-     - Description
-   * - 200 OK
-     - A new keypair is being returned.
-
-.. list-table::
-   :widths: 15 5 80
-   :header-rows: 1
-
-   * - Fields
-     - Type
-     - Values
-   * - ``accessKey``
-     - ``str``
-     - The access key part.
-   * - ``secretKey``
-     - ``str``
-     - The secret key part.
-
-Getting KeyPair Properties
---------------------------
-
-* URI: ``/v2/admin/keypairs/:user/:accessKey``
-* Method: ``GET``
-
-Retrieves the current values of the given list of properties.
-
-Parameters
-""""""""""
-
-.. list-table::
-   :widths: 15 5 80
-   :header-rows: 1
-
-   * - Parameter
-     - Type
-     - Description
-   * - ``:user``
-     - ``str``
-     - The associated user ID.
-   * - ``:accessKey``
-     - ``slug``
-     - The access key of the keypair.
-   * - ``keys``
-     - ``list[str]``
-     - The list of the property names available in :ref:`keypair-props-object`.
-
-Response
-""""""""
-
-.. list-table::
-   :widths: 25 75
-   :header-rows: 1
-
-   * - HTTP Status Code
-     - Description
-   * - 200 OK
-     - The information is successfully returned.
-   * - 404 Not Found
-     - There is no such keypair.
-
-.. list-table::
-   :widths: 15 5 80
-   :header-rows: 1
-
-   * - Fields
-     - Type
-     - Values
-   * - ``values``
-     - ``list[*]``
-     - The values of the request properties, in the same order of the request.
-
-Updating KeyPair Properties
----------------------------
-
-* URI: ``/v2/admin/keypairs/:user/:accessKey``
-* Method: ``PATCH``
-
-Updates the given list of properties to the given values.
-
-Parameters
-""""""""""
-
-.. list-table::
-   :widths: 15 5 80
-   :header-rows: 1
-
-   * - Parameter
-     - Type
-     - Description
-   * - ``:user``
-     - ``str``
-     - The associated user ID.
-   * - ``:accessKey``
-     - ``slug``
-     - The access key of the keypair.
-   * - ``props``
-     - ``object``
-     - A part of :ref:`keypair-props-object` containing only modified properties.
-
-Deleting KeyPair
-----------------
-
-* URI: ``/v2/admin/keypairs/:user/:accessKey``
-* Method: ``DELETE``
-
-Delete a keypair. This is not a reversible operation, and only intended for use in database clean-ups.
-In most cases when you need to delete a keypair, deactivate it instead using the property change API above.
-
-Parameters
-""""""""""
-
-.. list-table::
-   :widths: 15 5 80
-   :header-rows: 1
-
-   * - Parameter
-     - Type
-     - Description
-   * - ``:user``
-     - ``str``
-     - The associated user ID.
-   * - ``:accessKey``
-     - ``slug``
-     - The access key of the keypair.
+There is no mutations available.
