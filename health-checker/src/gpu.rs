@@ -1,8 +1,7 @@
 use anyhow::{anyhow, Result};
 use chrono::Utc;
-use log::{debug, error, info, warn};
+use log::{error, info};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::time::Instant;
 
 use crate::{HealthCheckResult, HealthStatus};
@@ -204,7 +203,7 @@ impl GpuMonitor {
                 let output_str = String::from_utf8_lossy(&result.stdout);
                 let mut health_results = Vec::new();
 
-                for (line_idx, line) in output_str.lines().enumerate() {
+                for (_line_idx, line) in output_str.lines().enumerate() {
                     if line.trim().is_empty() {
                         continue;
                     }
@@ -447,7 +446,7 @@ impl GpuMonitor {
     }
 
     pub async fn get_detailed_gpu_info(&self) -> Result<Vec<GpuInfo>> {
-        let mut gpu_infos = Vec::new();
+        let gpu_infos = Vec::new();
 
         if self.nvidia_available {
             #[cfg(feature = "nvidia")]

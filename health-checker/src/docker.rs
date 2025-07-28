@@ -3,9 +3,7 @@ use bollard::container::{ListContainersOptions, InspectContainerOptions};
 use bollard::Docker;
 use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-
-use crate::{HealthCheckResult, HealthStatus};
+use crate::HealthStatus;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContainerInfo {
@@ -40,8 +38,10 @@ impl DockerClient {
 
         for container in containers {
             // Filter for Backend.AI related containers
-            let names = container.names.as_ref().unwrap_or(&vec![]);
-            let image = container.image.as_ref().unwrap_or(&String::new());
+            let empty_names = vec![];
+            let names = container.names.as_ref().unwrap_or(&empty_names);
+            let empty_image = String::new();
+            let image = container.image.as_ref().unwrap_or(&empty_image);
             
             if names.iter().any(|name| self.is_backend_ai_container(name)) ||
                self.is_backend_ai_image(image) {
@@ -53,12 +53,13 @@ impl DockerClient {
                 let ports = container.ports.as_ref().unwrap_or(&vec![])
                     .iter()
                     .filter_map(|port| {
-                        if let (Some(private_port), Some(public_port)) = (port.private_port, port.public_port) {
-                            Some(format!("{}:{}", public_port, private_port))
-                        } else if let Some(private_port) = port.private_port {
-                            Some(format!("{}", private_port))
-                        } else {
-                            None
+                        match (port.private_port, port.public_port) {
+                            (private_port, Some(public_port)) => {
+                                Some(format!("{}:{}", public_port, private_port))
+                            }
+                            (private_port, None) => {
+                                Some(format!("{}", private_port))
+                            }
                         }
                     })
                     .collect();
@@ -84,20 +85,20 @@ impl DockerClient {
             Ok(container) => {
                 let state = container.state.unwrap_or_default();
                 let running = state.running.unwrap_or(false);
-                let status = state.status.unwrap_or_default();
+                let _status = state.status.map(|s| format!("{:?}", s)).unwrap_or_else(|| "Unknown".to_string());
                 let exit_code = state.exit_code.unwrap_or(0);
 
                 let health_status = if running {
                     // Check if container has health check
                     if let Some(health) = state.health {
-                        match health.status.as_deref() {
-                            Some("healthy") => HealthStatus::Healthy,
-                            Some("unhealthy") => HealthStatus::Unhealthy,
-                            Some("starting") => HealthStatus::Degraded,
+                        match health.status.as_ref().map(|s| format!("{:?}", s)).as_deref() {
+                            Some(status) if status.contains("healthy") => HealthStatus::Healthy,
+                            Some(status) if status.contains("unhealthy") => HealthStatus::Unhealthy,
+                            Some(status) if status.contains("starting") => HealthStatus::Degraded,
                             _ => HealthStatus::Unknown,
                         }
                     } else {
-                        HealthStatus::Healthy
+                        HealthStatus::Healthy 
                     }
                 } else {
                     HealthStatus::Unhealthy

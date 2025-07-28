@@ -2,9 +2,8 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use clap::{Parser, Subcommand};
 use colored::*;
-use log::{debug, error, info, warn};
+use log::info;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use tabled::{Table, Tabled};
 
@@ -13,9 +12,7 @@ mod docker;
 mod services;
 mod gpu;
 
-use checks::*;
 use docker::DockerClient;
-use services::*;
 use gpu::GpuMonitor;
 
 #[derive(Parser)]
@@ -90,7 +87,7 @@ pub struct HealthCheckResult {
     pub error_message: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum HealthStatus {
     Healthy,
     Unhealthy,

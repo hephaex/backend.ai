@@ -104,11 +104,9 @@ impl crate::HealthChecker {
         let client = redis::Client::open("redis://127.0.0.1:8111/")?;
         let mut conn = client.get_tokio_connection().await?;
 
-        // Test PING command
-        let pong: String = conn.ping().await?;
+        // Test PING command using redis commands
+        let pong: String = redis::cmd("PING").query_async(&mut conn).await?;
         if pong == "PONG" {
-            // Get Redis info
-            let info: String = conn.get("nonexistent_key_for_test").await.unwrap_or_else(|_| "OK".to_string());
             Ok((HealthStatus::Healthy, "PING successful".to_string()))
         } else {
             Ok((HealthStatus::Degraded, format!("Unexpected PING response: {}", pong)))
@@ -143,26 +141,19 @@ impl crate::HealthChecker {
     }
 
     async fn check_etcd_internal(&self) -> Result<(HealthStatus, String)> {
-        use etcd_rs::{Client, ClientConfig};
+        use etcd_rs::{Client, ClientConfig, Endpoint, KeyValueOp};
 
-        let endpoints = vec!["http://127.0.0.1:8121".to_string()];
+        let endpoints = vec![Endpoint::new("http://127.0.0.1:8121")];
         let client = Client::connect(ClientConfig::new(endpoints)).await?;
 
-        // Test with a simple health check
-        match client.health().await {
-            Ok(_) => Ok((HealthStatus::Healthy, "Health check passed".to_string())),
-            Err(e) => {
-                warn!("etcd health check failed: {}", e);
-                // Try a simple key operation as fallback
-                match client.put("health_check_test", "test_value", None).await {
-                    Ok(_) => {
-                        // Clean up test key
-                        let _ = client.delete("health_check_test", None).await;
-                        Ok((HealthStatus::Degraded, "Health endpoint failed but key operations work".to_string()))
-                    }
-                    Err(e) => Ok((HealthStatus::Unhealthy, format!("Health and key operations failed: {}", e)))
-                }
+        // Try a simple key operation to test connectivity
+        match client.put(("health_check_test", "test_value")).await {
+            Ok(_) => {
+                // Clean up test key
+                let _ = client.delete("health_check_test").await;
+                Ok((HealthStatus::Healthy, "Key operations successful".to_string()))
             }
+            Err(e) => Ok((HealthStatus::Unhealthy, format!("etcd operations failed: {}", e)))
         }
     }
 
@@ -201,18 +192,19 @@ impl crate::HealthChecker {
         // Try server version endpoint
         match client.get("http://127.0.0.1:8081/server/version").send().await {
             Ok(response) => {
-                if response.status().is_success() {
+                let status_code = response.status();
+                if status_code.is_success() {
                     match response.text().await {
                         Ok(text) => {
                             debug!("Manager API version response: {}", text);
-                            Ok((HealthStatus::Healthy, format!("API accessible - Status: {}", response.status())))
+                            Ok((HealthStatus::Healthy, format!("API accessible - Status: {}", status_code)))
                         }
                         Err(e) => {
                             Ok((HealthStatus::Degraded, format!("API accessible but response parsing failed: {}", e)))
                         }
                     }
                 } else {
-                    Ok((HealthStatus::Degraded, format!("API responded with status: {}", response.status())))
+                    Ok((HealthStatus::Degraded, format!("API responded with status: {}", status_code)))
                 }
             }
             Err(e) => {

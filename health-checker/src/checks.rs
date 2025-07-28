@@ -36,7 +36,7 @@ impl SystemChecker {
         // Check available memory using `vm_stat` on macOS
         if let Ok(output) = Command::new("vm_stat").output() {
             if output.status.success() {
-                let vm_info = String::from_utf8_lossy(&output.stdout);
+                let _vm_info = String::from_utf8_lossy(&output.stdout);
                 details.push("Memory check completed".to_string());
             } else {
                 details.push("Memory check failed".to_string());
@@ -82,6 +82,8 @@ impl SystemChecker {
         let mut successful_connections = 0;
         let mut failed_connections = Vec::new();
 
+        let total_endpoints = test_endpoints.len();
+        
         for (endpoint, service) in test_endpoints {
             match tokio::net::TcpStream::connect(endpoint).await {
                 Ok(_) => {
@@ -94,8 +96,6 @@ impl SystemChecker {
                 }
             }
         }
-
-        let total_endpoints = test_endpoints.len();
         let success_rate = (successful_connections as f64 / total_endpoints as f64) * 100.0;
 
         let status = if successful_connections == total_endpoints {
