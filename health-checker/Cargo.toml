@@ -1,0 +1,41 @@
+[package]
+name = "backend-ai-health-checker"
+version = "0.1.0"
+edition = "2021"
+authors = ["Backend.AI Team"]
+description = "Health check application for Backend.AI infrastructure components"
+license = "MIT"
+
+[dependencies]
+tokio = { version = "1.0", features = ["full"] }
+reqwest = { version = "0.11", features = ["json"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+clap = { version = "4.0", features = ["derive"] }
+chrono = { version = "0.4", features = ["serde"] }
+anyhow = "1.0"
+log = "0.4"
+env_logger = "0.10"
+bollard = "0.14"
+futures = "0.3"
+colored = "2.0"
+indicatif = "0.17"
+tabled = "0.14"
+
+[dependencies.redis]
+version = "0.23"
+features = ["tokio-comp"]
+
+[dependencies.tokio-postgres]
+version = "0.7"
+features = ["with-chrono-0_4"]
+
+[dependencies.etcd-rs]
+version = "1.0"
+features = ["tls"]
+
+# GPU monitoring dependencies
+nvml-wrapper = "0.10"
+metal = "0.29"
+libc = "0.2"
+once_cell = "1.19"

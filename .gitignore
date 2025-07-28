@@ -154,3 +154,8 @@ docs/manager/rest-reference/openapi.json
 backup.*.json
 /DIST-INFO
 /INSTALL-INFO
+
+# Session and development files
+.history/
+GEMINI.md
+SPRINT_PLAN.md
