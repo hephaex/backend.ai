@@ -1,0 +1,9 @@
+name,host,port,type,enabled,description
+localhost,localhost,8095,local,true,Local development environment
+backend-ai-manager,192.168.1.100,8095,manager,true,Backend.AI Manager Node
+backend-ai-agent-1,192.168.1.101,8095,agent,true,Backend.AI Agent Node 1
+backend-ai-agent-2,192.168.1.102,8095,agent,true,Backend.AI Agent Node 2
+backend-ai-storage,192.168.1.103,8095,storage,true,Backend.AI Storage Proxy
+backend-ai-web,192.168.1.104,8095,web,false,Backend.AI Web Server (disabled)
+gpu-node-1,192.168.1.105,8095,gpu,true,GPU-enabled compute node 1
+gpu-node-2,192.168.1.106,8095,gpu,true,GPU-enabled compute node 2

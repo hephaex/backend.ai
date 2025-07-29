@@ -1,0 +1,82 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "backend-ai-manager.fullname" . }}-config
+  labels:
+    {{- include "backend-ai-manager.labels" . | nindent 4 }}
+data:
+  manager.toml: |
+    [etcd]
+    namespace = "{{ .Values.config.etcd.namespace }}"
+    endpoints = {{ .Values.config.etcd.endpoints | toJson }}
+
+    [db]
+    type = "postgresql"
+    addr = { host = "{{ .Values.config.database.host }}", port = {{ .Values.config.database.port }} }
+    name = "{{ .Values.config.database.name }}"
+    user = "{{ .Values.config.database.user }}"
+    
+    [redis]
+    addr = { host = "{{ .Values.config.redis.host }}", port = {{ .Values.config.redis.port }} }
+    {{- if .Values.config.redis.password }}
+    password = "{{ .Values.config.redis.password }}"
+    {{- end }}
+
+    [manager]
+    num-proc = 4
+    pid-file = "/tmp/backend.ai-manager.pid"
+    id = "main"
+    
+    [logging]
+    level = "{{ .Values.config.logging.level }}"
+    drivers = {{ .Values.config.logging.drivers | toJson }}
+    {{- if .Values.config.logging.file_path }}
+    
+    [logging.pkg-ns.ai.backend]
+    level = "{{ .Values.config.logging.level }}"
+    
+    [logging.loggers.ai.backend.manager.api.session]
+    level = "{{ .Values.config.logging.level }}"
+    {{- end }}
+
+    [debug]
+    enabled = {{ .Values.config.debug }}
+
+    [session]
+    redis = { host = "{{ .Values.config.session.redis_host }}", port = {{ .Values.config.session.redis_port }} }
+
+    [api.auth]
+    session-timeout = 3600
+    
+    [api.ratelimit]
+    enabled = true
+    redis = { host = "{{ .Values.config.redis.host }}", port = {{ .Values.config.redis.port }} }
+
+    [manager.apps]
+    {{- if .Values.config.api.cors_enabled }}
+    cors-enabled = true
+    cors-origins = {{ .Values.config.api.allow_origins | toJson }}
+    {{- end }}
+
+    {{- if .Values.config.webhook.enabled }}
+    [manager.event-dispatcher]
+    backend = "webhook"
+    webhook-url = "{{ .Values.config.webhook.url }}"
+    {{- end }}
+
+    {{- if .Values.config.email.enabled }}
+    [manager.smtp]
+    host = "{{ .Values.config.email.smtp_host }}"
+    port = {{ .Values.config.email.smtp_port }}
+    user = "{{ .Values.config.email.smtp_user }}"
+    password = "{{ .Values.config.email.smtp_password }}"
+    {{- end }}
+
+    [manager.plugins]
+    {{- if .Values.config.plugins.accelerator }}
+    accelerator = {{ .Values.config.plugins.accelerator | toJson }}
+    {{- end }}
+    scheduler = "{{ .Values.config.plugins.scheduler }}"
+    {{- if .Values.config.plugins.webapp }}
+    webapp = {{ .Values.config.plugins.webapp | toJson }}
+    {{- end }}

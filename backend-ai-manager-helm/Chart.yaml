@@ -1,0 +1,38 @@
+apiVersion: v2
+name: backend-ai-manager
+description: A Helm chart for Backend.AI Manager deployment
+type: application
+version: 0.1.0
+appVersion: "23.09"
+
+keywords:
+  - backend.ai
+  - machine-learning
+  - gpu
+  - computing
+  - manager
+
+home: https://backend.ai
+sources:
+  - https://github.com/lablup/backend.ai
+
+maintainers:
+  - name: Backend.AI Team
+    email: contact@lablup.com
+
+dependencies:
+  - name: postgresql
+    version: "12.x.x"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: postgresql.enabled
+  - name: redis
+    version: "17.x.x"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: redis.enabled
+  - name: etcd
+    version: "8.x.x"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: etcd.enabled
+
+annotations:
+  category: MachineLearning

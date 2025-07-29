@@ -1,0 +1,268 @@
+# Default values for backend-ai-manager.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Global configuration
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+  storageClass: ""
+
+# Backend.AI Manager image
+image:
+  registry: docker.io
+  repository: lablup/backend.ai-manager
+  tag: "23.09.0"
+  pullPolicy: IfNotPresent
+  pullSecrets: []
+
+# Number of replicas
+replicaCount: 1
+
+# Service account
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 1000
+  runAsNonRoot: true
+  runAsUser: 1000
+
+# Container security context
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1000
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+  annotations: {}
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # nginx.ingress.kubernetes.io/rewrite-target: /
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: manager.backend.ai.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+    # - secretName: backend-ai-manager-tls
+    #   hosts:
+    #     - manager.backend.ai.local
+
+# Resource management
+resources:
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+# Autoscaling
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# Node selection
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity
+affinity: {}
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+  maxUnavailable: ""
+
+# Persistence for logs and data
+persistence:
+  enabled: true
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 10Gi
+  annotations: {}
+
+# Backend.AI Manager configuration
+config:
+  # Debug mode
+  debug: false
+  
+  # Server configuration
+  server:
+    host: "0.0.0.0"
+    port: 8080
+    ssl_enabled: false
+    
+  # Database configuration
+  database:
+    host: "postgresql"
+    port: 5432
+    name: "backend_ai"
+    user: "backend_ai"
+    # password will be set via secret
+    
+  # Redis configuration
+  redis:
+    host: "redis-master"
+    port: 6379
+    password: ""
+    
+  # ETCD configuration
+  etcd:
+    endpoints:
+      - "etcd:2379"
+    namespace: "/sorna"
+    
+  # Session configuration
+  session:
+    redis_host: "redis-master"
+    redis_port: 6379
+    
+  # Logging configuration
+  logging:
+    level: "INFO"
+    drivers:
+      - "console"
+      - "file"
+    file_path: "/var/log/backend.ai/manager.log"
+    
+  # API configuration
+  api:
+    allow_origins: ["*"]
+    cors_enabled: true
+    
+  # Webhook configuration
+  webhook:
+    enabled: false
+    url: ""
+    
+  # Email configuration
+  email:
+    enabled: false
+    smtp_host: ""
+    smtp_port: 587
+    smtp_user: ""
+    smtp_password: ""
+    
+  # Plugin configuration
+  plugins:
+    accelerator: []
+    scheduler: "fifo"
+    webapp: []
+
+# Environment variables
+env:
+  - name: BACKEND_AI_MANAGER_CONFIG_FILE
+    value: "/etc/backend.ai/manager.toml"
+
+# Additional environment variables from secrets
+envFromSecret: []
+
+# PostgreSQL dependency configuration
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: "backend_ai_password"
+    username: "backend_ai"
+    password: "backend_ai_password"
+    database: "backend_ai"
+  primary:
+    persistence:
+      enabled: true
+      size: 20Gi
+
+# Redis dependency configuration
+redis:
+  enabled: true
+  auth:
+    enabled: false
+  master:
+    persistence:
+      enabled: true
+      size: 5Gi
+
+# ETCD dependency configuration
+etcd:
+  enabled: true
+  auth:
+    rbac:
+      enabled: false
+  persistence:
+    enabled: true
+    size: 5Gi
+
+# Monitoring and observability
+monitoring:
+  enabled: false
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    scrapeTimeout: 10s
+    path: /metrics
+
+# Health checks
+healthCheck:
+  enabled: true
+  livenessProbe:
+    httpGet:
+      path: /v4/manager/status
+      port: 8080
+    initialDelaySeconds: 60
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /v4/manager/status
+      port: 8080
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+# Pod annotations
+podAnnotations: {}
+
+# Pod labels
+podLabels: {}
+
+# Custom volumes
+volumes: []
+
+# Custom volume mounts
+volumeMounts: []
+
+# Init containers
+initContainers: []
+
+# Sidecar containers
+sidecars: []
+
+# Network policies
+networkPolicy:
+  enabled: false
+  ingress: []
+  egress: []
