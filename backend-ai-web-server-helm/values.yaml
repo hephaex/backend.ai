@@ -1,0 +1,211 @@
+# Default values for backend-ai-web-server
+# This is a YAML-formatted file.
+
+# Global settings
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+  storageClass: ""
+
+# Image settings
+image:
+  registry: ghcr.io
+  repository: lablup/backend.ai-web-server
+  tag: "23.09"
+  pullPolicy: IfNotPresent
+  pullSecrets: []
+
+# Deployment settings
+replicaCount: 1
+
+nameOverride: ""
+fullnameOverride: ""
+
+# Service account
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+  automount: true
+
+# Pod annotations and labels
+podAnnotations: {}
+podLabels: {}
+
+# Security context
+podSecurityContext:
+  fsGroup: 2000
+
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8090
+  targetPort: 8090
+  annotations: {}
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: ""
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+  hosts:
+    - host: backend.ai
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+    # - secretName: backend-ai-tls
+    #   hosts:
+    #     - backend.ai
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 1000m
+    memory: 2Gi
+  requests:
+    cpu: 250m
+    memory: 512Mi
+
+# Liveness and readiness probes
+livenessProbe:
+  httpGet:
+    path: /
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 5
+
+# Autoscaling
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# Node selection and scheduling
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Persistence
+persistence:
+  enabled: true
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 1Gi
+  mountPath: /home/backend.ai/logs
+  subPath: ""
+  annotations: {}
+
+# Configuration
+config:
+  # Web server configuration
+  debug: false
+  
+  # Server settings
+  server:
+    host: "0.0.0.0"
+    port: 8090
+    ssl:
+      enabled: false
+      cert: ""
+      key: ""
+  
+  # Manager connection
+  manager:
+    endpoint: "http://backend-ai-manager:8080"
+    user: "admin@lablup.com"
+    password: "wJalrXUt"
+  
+  # Session configuration
+  session:
+    secret_key: "your-secret-key-here"
+    cookie_age: 86400  # 24 hours
+  
+  # UI configuration
+  ui:
+    brand: "Backend.AI"
+    default_language: "en"
+    menu_blocklist: []
+    menu_inactivelist: []
+    
+    # Feature flags
+    features:
+      always_enqueue_compute_session: false
+      hide_agents: false
+      enable_container_commit: false
+      enable_change_signin_mode: false
+      enable_signup: true
+      enable_backendai_stats: true
+      enable_pipeline: false
+  
+  # Wsproxy configuration
+  wsproxy:
+    policy: "session"
+    uri: "local"
+  
+  # API configuration
+  api:
+    domain: "default"
+    endpoint: "https://api.backend.ai"
+    text: "Backend.AI Cloud"
+    ssl_verify: true
+
+# Environment variables
+env:
+  NODE_ENV: "production"
+
+envFrom: []
+
+# Init containers
+initContainers: []
+
+# Sidecar containers
+sidecars: []
+
+# Additional containers
+containers: []
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+# Network Policy
+networkPolicy:
+  enabled: false
+  ingress: []
+  egress: []
+
+# Monitoring
+monitoring:
+  enabled: false
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    scrapeTimeout: 10s
+    labels: {}
+    annotations: {}
+
+# Logging
+logging:
+  level: "INFO"
+  format: "console"

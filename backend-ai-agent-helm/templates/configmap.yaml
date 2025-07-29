@@ -1,0 +1,68 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "backend-ai-agent.fullname" . }}
+  labels:
+    {{- include "backend-ai-agent.labels" . | nindent 4 }}
+data:
+  agent.toml: |
+    [logging]
+    level = "{{ .Values.config.logging.level }}"
+    format = "{{ .Values.config.logging.format }}"
+    
+    [debug]
+    enabled = {{ .Values.config.debug }}
+    
+    [agent]
+    id = "{{ .Values.config.agent.id }}"
+    host = "{{ .Values.config.agent.host }}"
+    port = {{ .Values.config.agent.port }}
+    region = "{{ .Values.config.agent.region }}"
+    scaling-group = "{{ .Values.config.agent.scaling_group }}"
+    watcher-port = {{ .Values.config.agent.watcher_port }}
+    
+    [manager]
+    endpoint = "{{ .Values.config.manager.endpoint }}"
+    user = "{{ .Values.config.manager.user }}"
+    
+    [container]
+    backend = "{{ .Values.config.container.backend }}"
+    scratch-root = "{{ .Values.config.container.scratch_root }}"
+    
+    [container.registry]
+    url = "{{ .Values.config.container.registry.url }}"
+    {{- range .Values.config.container.registry.project }}
+    project = ["{{ . }}"]
+    {{- end }}
+    
+    [redis]
+    host = "{{ .Values.config.redis.host }}"
+    port = {{ .Values.config.redis.port }}
+    db = {{ .Values.config.redis.db }}
+    
+    [etcd]
+    namespace = "{{ .Values.config.etcd.namespace }}"
+    {{- range .Values.config.etcd.endpoints }}
+    [[etcd.endpoints]]
+    addr = "{{ . }}"
+    {{- end }}
+    
+    [resource]
+    cpu = {{ .Values.config.agent.resources.cpu.count }}
+    cpu-set = []
+    mem = "{{ .Values.config.agent.resources.memory.capacity }}"
+    
+    {{- if .Values.gpu.enabled }}
+    {{- range .Values.config.agent.resources.accelerators }}
+    [[resource.accelerators]]
+    device_name = "{{ .device_name }}"
+    memory_capacity = "{{ .memory_capacity }}"
+    processing_units = {{ .processing_units }}
+    {{- end }}
+    {{- end }}
+    
+    {{- if .Values.config.monitoring.enabled }}
+    [monitoring]
+    enabled = true
+    port = {{ .Values.config.monitoring.port }}
+    {{- end }}

@@ -1,0 +1,331 @@
+# Default values for backend-ai umbrella chart
+# This is a YAML-formatted file.
+
+# Global settings applied to all sub-charts
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+  storageClass: ""
+
+# Backend.AI Manager
+manager:
+  enabled: true
+  replicaCount: 1
+  image:
+    registry: ghcr.io
+    repository: lablup/backend.ai-manager
+    tag: "23.09"
+  
+  service:
+    type: ClusterIP
+    port: 8080
+  
+  ingress:
+    enabled: false
+    className: ""
+    hosts:
+      - host: manager.backend.ai
+        paths:
+          - path: /
+            pathType: Prefix
+  
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+  
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 5
+  
+  # Manager-specific configuration
+  config:
+    debug: false
+    database:
+      host: "backend-ai-postgresql"
+      port: 5432
+      name: "backend_ai"
+      user: "postgres"
+      password: ""
+    redis:
+      host: "backend-ai-redis-master"
+      port: 6379
+      password: ""
+    etcd:
+      endpoints:
+        - "backend-ai-etcd:2379"
+
+# Backend.AI Agent
+agent:
+  enabled: true
+  replicaCount: 1
+  image:
+    registry: ghcr.io
+    repository: lablup/backend.ai-agent
+    tag: "23.09"
+  
+  service:
+    type: ClusterIP
+    port: 6011
+  
+  resources:
+    limits:
+      cpu: 8000m
+      memory: 16Gi
+      nvidia.com/gpu: 1
+    requests:
+      cpu: 2000m
+      memory: 4Gi
+  
+  # Agent-specific configuration
+  config:
+    agent:
+      id: "i-001"
+      region: "local"
+      scaling_group: "default"
+    manager:
+      endpoint: "http://backend-ai-manager:8080"
+      user: "admin@lablup.com"
+      password: "wJalrXUt"
+    redis:
+      host: "backend-ai-redis-master"
+      port: 6379
+    etcd:
+      endpoints:
+        - "backend-ai-etcd:2379"
+  
+  gpu:
+    enabled: true
+    runtime: nvidia
+
+# Backend.AI Storage Proxy
+storageProxy:
+  enabled: true
+  replicaCount: 1
+  image:
+    registry: ghcr.io
+    repository: lablup/backend.ai-storage-proxy
+    tag: "23.09"
+  
+  service:
+    type: ClusterIP
+    port: 6021
+  
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+  
+  # Storage Proxy specific configuration
+  config:
+    manager:
+      endpoint: "http://backend-ai-manager:8080"
+      user: "admin@lablup.com"
+      password: "wJalrXUt"
+    database:
+      host: "backend-ai-postgresql"
+      port: 5432
+      name: "backend_ai_storage"
+      user: "postgres"
+      password: ""
+    redis:
+      host: "backend-ai-redis-master"
+      port: 6379
+    etcd:
+      endpoints:
+        - "backend-ai-etcd:2379"
+
+# Backend.AI App Proxy (Coordinator + Worker)
+appProxy:
+  enabled: true
+  
+  coordinator:
+    enabled: true
+    replicaCount: 1
+    image:
+      registry: ghcr.io
+      repository: lablup/backend.ai-app-proxy-coordinator
+      tag: "23.09"
+    service:
+      type: ClusterIP
+      port: 10200
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+      requests:
+        cpu: 250m
+        memory: 512Mi
+  
+  worker:
+    enabled: true
+    replicaCount: 2
+    image:
+      registry: ghcr.io
+      repository: lablup/backend.ai-app-proxy-worker
+      tag: "23.09"
+    service:
+      type: ClusterIP
+      port: 10201
+    resources:
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+      requests:
+        cpu: 500m
+        memory: 1Gi
+  
+  # App Proxy specific configuration
+  config:
+    manager:
+      endpoint: "http://backend-ai-manager:8080"
+      user: "admin@lablup.com"
+      password: "wJalrXUt"
+    database:
+      host: "backend-ai-postgresql"
+      port: 5432
+      name: "backend_ai_appproxy"
+      user: "postgres"
+      password: ""
+    redis:
+      host: "backend-ai-redis-master"
+      port: 6379
+    etcd:
+      endpoints:
+        - "backend-ai-etcd:2379"
+
+# Backend.AI Web Server (Frontend)
+webServer:
+  enabled: true
+  replicaCount: 1
+  image:
+    registry: ghcr.io
+    repository: lablup/backend.ai-web-server
+    tag: "23.09"
+  
+  service:
+    type: ClusterIP
+    port: 8090
+  
+  ingress:
+    enabled: true
+    className: ""
+    annotations:
+      nginx.ingress.kubernetes.io/rewrite-target: /
+      nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    hosts:
+      - host: backend.ai
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+  
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+    requests:
+      cpu: 250m
+      memory: 512Mi
+  
+  # Web Server specific configuration
+  config:
+    manager:
+      endpoint: "http://backend-ai-manager:8080"
+      user: "admin@lablup.com"
+      password: "wJalrXUt"
+    ui:
+      brand: "Backend.AI"
+      features:
+        enable_signup: true
+        enable_backendai_stats: true
+
+# Infrastructure Dependencies
+
+# PostgreSQL Database
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: "securepass123"
+    username: "postgres"
+    password: "securepass123"
+    database: "backend_ai"
+  
+  primary:
+    persistence:
+      enabled: true
+      size: 20Gi
+    
+    # Basic single database setup - users can customize as needed
+    initdb:
+      scripts: {}
+
+# Redis Cache
+redis:
+  enabled: true
+  auth:
+    enabled: false
+    password: ""
+  
+  master:
+    persistence:
+      enabled: true
+      size: 8Gi
+  
+  replica:
+    persistence:
+      enabled: true
+      size: 8Gi
+
+# ETCD Key-Value Store
+etcd:
+  enabled: true
+  auth:
+    rbac:
+      create: false
+  
+  persistence:
+    enabled: true
+    size: 8Gi
+  
+  replicaCount: 3
+
+# Monitoring and Observability
+monitoring:
+  enabled: false
+  
+  prometheus:
+    enabled: false
+  
+  grafana:
+    enabled: false
+
+# Security settings
+security:
+  podSecurityPolicy:
+    enabled: false
+  
+  networkPolicy:
+    enabled: false
+
+# Common configuration
+commonConfig:
+  # Shared secrets and keys
+  secrets:
+    managerPassword: "wJalrXUt"
+    sessionSecretKey: "your-secret-key-here"
+  
+  # Logging configuration
+  logging:
+    level: "INFO"
+    format: "console"
+  
+  # Debug settings
+  debug: false

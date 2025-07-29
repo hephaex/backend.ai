@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "backend-ai-agent.fullname" . }}
+  labels:
+    {{- include "backend-ai-agent.labels" . | nindent 4 }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}
+      protocol: TCP
+      name: http
+    - port: {{ .Values.config.agent.watcher_port }}
+      targetPort: {{ .Values.config.agent.watcher_port }}
+      protocol: TCP
+      name: watcher
+    {{- if .Values.config.monitoring.enabled }}
+    - port: {{ .Values.config.monitoring.port }}
+      targetPort: {{ .Values.config.monitoring.port }}
+      protocol: TCP
+      name: monitoring
+    {{- end }}
+  selector:
+    {{- include "backend-ai-agent.selectorLabels" . | nindent 4 }}

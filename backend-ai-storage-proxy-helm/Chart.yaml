@@ -1,0 +1,37 @@
+apiVersion: v2
+name: backend-ai-storage-proxy
+description: A Helm chart for Backend.AI Storage Proxy deployment
+type: application
+version: 0.1.0
+appVersion: "23.09"
+
+keywords:
+  - backend.ai
+  - storage
+  - proxy
+  - computing
+
+home: https://backend.ai
+sources:
+  - https://github.com/lablup/backend.ai
+
+maintainers:
+  - name: Backend.AI Team
+    email: contact@lablup.com
+
+dependencies:
+  - name: postgresql
+    version: "16.7.21"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: postgresql.enabled
+  - name: redis
+    version: "21.2.13"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: redis.enabled
+  - name: etcd
+    version: "12.0.14"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: etcd.enabled
+
+annotations:
+  category: Storage

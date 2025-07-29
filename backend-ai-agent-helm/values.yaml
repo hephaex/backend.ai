@@ -1,0 +1,259 @@
+# Default values for backend-ai-agent
+# This is a YAML-formatted file.
+
+# Global settings
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+  storageClass: ""
+
+# Image settings
+image:
+  registry: ghcr.io
+  repository: lablup/backend.ai-agent
+  tag: "23.09"
+  pullPolicy: IfNotPresent
+  pullSecrets: []
+
+# Deployment settings
+replicaCount: 1
+
+nameOverride: ""
+fullnameOverride: ""
+
+# Service account
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+  automount: true
+
+# Pod annotations and labels
+podAnnotations: {}
+podLabels: {}
+
+# Security context
+podSecurityContext:
+  fsGroup: 2000
+
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+    add:
+    - SYS_PTRACE  # Required for container monitoring
+  readOnlyRootFilesystem: false  # Agent needs write access
+  runAsNonRoot: false  # Agent may need root privileges
+  runAsUser: 0
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 6011
+  targetPort: 6011
+  annotations: {}
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 8000m
+    memory: 16Gi
+    nvidia.com/gpu: 1  # Default GPU allocation
+  requests:
+    cpu: 2000m
+    memory: 4Gi
+
+# Liveness and readiness probes
+livenessProbe:
+  httpGet:
+    path: /
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 5
+
+# Autoscaling
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# Node selection and scheduling
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Persistence
+persistence:
+  enabled: true
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 100Gi  # Large storage for container images and user data
+  mountPath: /home/backend.ai/scratch
+  subPath: ""
+  annotations: {}
+
+# Configuration
+config:
+  # Agent configuration
+  debug: false
+  
+  # Manager connection
+  manager:
+    endpoint: "http://backend-ai-manager:8080"
+    user: "admin@lablup.com"
+    password: "wJalrXUt"
+  
+  # Agent settings
+  agent:
+    id: "i-001"
+    host: "0.0.0.0"
+    port: 6011
+    region: "local"
+    scaling_group: "default"
+    watcher_port: 6019
+    
+    # Resource configuration
+    resources:
+      cpu:
+        count: 8
+        count_per_container: 4
+      memory:
+        capacity: "16Gi"
+        capacity_per_container: "8Gi"
+      accelerators:
+        - type: "cuda"
+          device_name: "GeForce RTX 4090"
+          memory_capacity: "24Gi"
+          processing_units: 1
+  
+  # Container configuration
+  container:
+    # Backend runtime (docker or podman)
+    backend: "docker"
+    # Scratch directory for temporary files
+    scratch_root: "/home/backend.ai/scratch"
+    # Container registry configuration
+    registry:
+      url: "index.docker.io"
+      project: ["lablup"]
+    # Resource limits
+    resource_limits:
+      cpu: 8.0
+      memory: 16000000000  # 16GB in bytes
+      gpu: 1
+  
+  # Redis configuration
+  redis:
+    host: "backend-ai-agent-redis-master"
+    port: 6379
+    password: ""
+    db: 0
+  
+  # ETCD configuration
+  etcd:
+    endpoints:
+      - "backend-ai-agent-etcd:2379"
+    namespace: "local"
+    user: ""
+    password: ""
+  
+  # Logging configuration
+  logging:
+    level: "INFO"
+    format: "console"
+  
+  # Monitoring configuration
+  monitoring:
+    enabled: true
+    port: 6020
+
+# Container runtime volumes
+volumes:
+  - name: docker-socket
+    hostPath:
+      path: /var/run/docker.sock
+      type: Socket
+  - name: scratch-volume
+    emptyDir:
+      sizeLimit: 100Gi
+
+# Volume mounts
+volumeMounts:
+  - name: docker-socket
+    mountPath: /var/run/docker.sock
+  - name: scratch-volume
+    mountPath: /tmp/backend.ai
+
+# Environment variables
+env:
+  BACKEND_AI_AGENT_ID: ""  # Will be set to pod name
+  BACKEND_AI_AGENT_INSTANCE_TYPE: "c5.2xlarge"
+
+envFrom: []
+
+# Init containers
+initContainers: []
+
+# Sidecar containers
+sidecars: []
+
+# Additional containers
+containers: []
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+# Network Policy
+networkPolicy:
+  enabled: false
+  ingress: []
+  egress: []
+
+# Monitoring
+monitoring:
+  enabled: false
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    scrapeTimeout: 10s
+    labels: {}
+    annotations: {}
+
+# GPU support
+gpu:
+  enabled: true
+  runtime: nvidia
+  # Node selector for GPU nodes
+  nodeSelector:
+    accelerator: nvidia-tesla-k80
+
+# Dependencies
+redis:
+  enabled: true
+  auth:
+    enabled: false
+    password: ""
+  master:
+    persistence:
+      enabled: true
+      size: 8Gi
+
+etcd:
+  enabled: true
+  auth:
+    rbac:
+      create: false
+  persistence:
+    enabled: true
+    size: 8Gi

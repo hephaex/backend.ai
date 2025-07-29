@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "backend-ai-storage-proxy.fullname" . }}
+  labels:
+    {{- include "backend-ai-storage-proxy.labels" . | nindent 4 }}
+data:
+  storage-proxy.toml: |
+    [logging]
+    level = "{{ .Values.logging.level }}"
+    format = "{{ .Values.logging.format }}"
+    
+    [debug]
+    enabled = {{ .Values.config.debug }}
+    
+    [api]
+    host = "{{ .Values.config.api.host }}"
+    port = {{ .Values.config.api.port }}
+    {{- if .Values.config.api.ssl.enabled }}
+    ssl-enabled = true
+    ssl-cert = "{{ .Values.config.api.ssl.cert }}"
+    ssl-key = "{{ .Values.config.api.ssl.key }}"
+    {{- end }}
+    
+    [manager]
+    endpoint = "{{ .Values.config.manager.endpoint }}"
+    user = "{{ .Values.config.manager.user }}"
+    
+    [database]
+    host = "{{ .Values.config.database.host }}"
+    port = {{ .Values.config.database.port }}
+    name = "{{ .Values.config.database.name }}"
+    user = "{{ .Values.config.database.user }}"
+    ssl-mode = "{{ .Values.config.database.ssl_mode }}"
+    
+    [redis]
+    host = "{{ .Values.config.redis.host }}"
+    port = {{ .Values.config.redis.port }}
+    db = {{ .Values.config.redis.db }}
+    
+    [etcd]
+    namespace = "{{ .Values.config.etcd.namespace }}"
+    {{- range .Values.config.etcd.endpoints }}
+    [[etcd.endpoints]]
+    addr = "{{ . }}"
+    {{- end }}
+    
+    [storage]
+    max-upload-size = "{{ .Values.config.storage.max_upload_size }}"
+    
+    {{- range .Values.config.storage.volumes }}
+    [[storage.volumes]]
+    name = "{{ .name }}"
+    backend = "{{ .backend }}"
+    path = "{{ .path }}"
+    fsprefix = "{{ .fsprefix }}"
+    {{- end }}

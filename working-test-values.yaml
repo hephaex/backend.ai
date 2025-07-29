@@ -1,0 +1,51 @@
+# Working test configuration - simple single database
+manager:
+  enabled: false
+
+agent:
+  enabled: false
+
+storageProxy:
+  enabled: false
+
+appProxy:
+  enabled: false
+
+webServer:
+  enabled: false
+
+# Infrastructure with single database (working)
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: "test123"
+    username: "postgres" 
+    password: "test123"
+    database: "backend_ai"
+  primary:
+    persistence:
+      enabled: true
+      size: 1Gi
+    # Use simple single database - no custom init scripts
+    initdb:
+      scripts: {}
+
+redis:
+  enabled: true
+  auth:
+    enabled: false
+  master:
+    persistence:
+      enabled: true
+      size: 1Gi
+  replica:
+    persistence:
+      enabled: true
+      size: 1Gi
+
+etcd:
+  enabled: true
+  persistence:
+    enabled: true
+    size: 1Gi
+  replicaCount: 1

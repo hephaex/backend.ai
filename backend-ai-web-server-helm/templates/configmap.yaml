@@ -1,0 +1,60 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "backend-ai-web-server.fullname" . }}
+  labels:
+    {{- include "backend-ai-web-server.labels" . | nindent 4 }}
+data:
+  webserver.toml: |
+    [logging]
+    level = "{{ .Values.logging.level }}"
+    format = "{{ .Values.logging.format }}"
+    
+    [debug]
+    enabled = {{ .Values.config.debug }}
+    
+    [server]
+    host = "{{ .Values.config.server.host }}"
+    port = {{ .Values.config.server.port }}
+    {{- if .Values.config.server.ssl.enabled }}
+    ssl-enabled = true
+    ssl-cert = "{{ .Values.config.server.ssl.cert }}"
+    ssl-key = "{{ .Values.config.server.ssl.key }}"
+    {{- end }}
+    
+    [manager]
+    endpoint = "{{ .Values.config.manager.endpoint }}"
+    user = "{{ .Values.config.manager.user }}"
+    
+    [session]
+    secret-key = "{{ .Values.config.session.secret_key }}"
+    cookie-age = {{ .Values.config.session.cookie_age }}
+    
+    [ui]
+    brand = "{{ .Values.config.ui.brand }}"
+    default-language = "{{ .Values.config.ui.default_language }}"
+    {{- if .Values.config.ui.menu_blocklist }}
+    menu-blocklist = {{ .Values.config.ui.menu_blocklist | toJson }}
+    {{- end }}
+    {{- if .Values.config.ui.menu_inactivelist }}
+    menu-inactivelist = {{ .Values.config.ui.menu_inactivelist | toJson }}
+    {{- end }}
+    
+    [ui.features]
+    always-enqueue-compute-session = {{ .Values.config.ui.features.always_enqueue_compute_session }}
+    hide-agents = {{ .Values.config.ui.features.hide_agents }}
+    enable-container-commit = {{ .Values.config.ui.features.enable_container_commit }}
+    enable-change-signin-mode = {{ .Values.config.ui.features.enable_change_signin_mode }}
+    enable-signup = {{ .Values.config.ui.features.enable_signup }}
+    enable-backendai-stats = {{ .Values.config.ui.features.enable_backendai_stats }}
+    enable-pipeline = {{ .Values.config.ui.features.enable_pipeline }}
+    
+    [wsproxy]
+    policy = "{{ .Values.config.wsproxy.policy }}"
+    uri = "{{ .Values.config.wsproxy.uri }}"
+    
+    [api]
+    domain = "{{ .Values.config.api.domain }}"
+    endpoint = "{{ .Values.config.api.endpoint }}"
+    text = "{{ .Values.config.api.text }}"
+    ssl-verify = {{ .Values.config.api.ssl_verify }}

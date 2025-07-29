@@ -1,0 +1,62 @@
+apiVersion: v2
+name: backend-ai
+description: A comprehensive Helm umbrella chart for Backend.AI platform deployment
+type: application
+version: 0.1.0
+appVersion: "23.09"
+
+keywords:
+  - backend.ai
+  - machine-learning
+  - gpu
+  - computing
+  - platform
+  - umbrella
+
+home: https://backend.ai
+sources:
+  - https://github.com/lablup/backend.ai
+
+maintainers:
+  - name: Backend.AI Team
+    email: contact@lablup.com
+
+dependencies:
+  # Core Backend.AI Services
+  - name: backend-ai-manager
+    version: "0.1.0"
+    repository: "file://../backend-ai-manager-helm"
+    condition: manager.enabled
+  - name: backend-ai-agent
+    version: "0.1.0"
+    repository: "file://../backend-ai-agent-helm"
+    condition: agent.enabled
+  - name: backend-ai-storage-proxy
+    version: "0.1.0"
+    repository: "file://../backend-ai-storage-proxy-helm"
+    condition: storageProxy.enabled
+  - name: backend-ai-app-proxy
+    version: "0.1.0"
+    repository: "file://../backend-ai-app-proxy-helm"
+    condition: appProxy.enabled
+  - name: backend-ai-web-server
+    version: "0.1.0"
+    repository: "file://../backend-ai-web-server-helm"
+    condition: webServer.enabled
+  
+  # Infrastructure Dependencies
+  - name: postgresql
+    version: "16.7.21"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: postgresql.enabled
+  - name: redis
+    version: "21.2.13"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: redis.enabled
+  - name: etcd
+    version: "12.0.14"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: etcd.enabled
+
+annotations:
+  category: Platform

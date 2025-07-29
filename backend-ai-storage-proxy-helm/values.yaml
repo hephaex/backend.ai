@@ -1,0 +1,255 @@
+# Default values for backend-ai-storage-proxy
+# This is a YAML-formatted file.
+
+# Global settings
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+  storageClass: ""
+
+# Image settings
+image:
+  registry: ghcr.io
+  repository: lablup/backend.ai-storage-proxy
+  tag: "23.09"
+  pullPolicy: IfNotPresent
+  pullSecrets: []
+
+# Deployment settings
+replicaCount: 1
+
+nameOverride: ""
+fullnameOverride: ""
+
+# Service account
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Pod annotations and labels
+podAnnotations: {}
+podLabels: {}
+
+# Security context
+podSecurityContext:
+  fsGroup: 2000
+
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 6021
+  targetPort: 6021
+  annotations: {}
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: storage-proxy.backend.ai
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+# Liveness and readiness probes
+livenessProbe:
+  httpGet:
+    path: /
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 5
+
+# Autoscaling
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# Node selection and scheduling
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Persistence
+persistence:
+  enabled: true
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 10Gi
+  mountPath: /home/backend.ai/logs
+  subPath: ""
+  annotations: {}
+
+# Configuration
+config:
+  # Storage proxy configuration
+  debug: false
+  
+  # API server settings
+  api:
+    host: "0.0.0.0"
+    port: 6021
+    ssl:
+      enabled: false
+      cert: ""
+      key: ""
+  
+  # Manager connection
+  manager:
+    endpoint: "http://backend-ai-manager:8080"
+    user: "admin@lablup.com"
+    password: "wJalrXUt"
+  
+  # Database configuration
+  database:
+    host: "backend-ai-storage-proxy-postgresql"
+    port: 5432
+    name: "backend_ai_storage"
+    user: "postgres"
+    password: ""
+    ssl_mode: "prefer"
+  
+  # Redis configuration
+  redis:
+    host: "backend-ai-storage-proxy-redis-master"
+    port: 6379
+    password: ""
+    db: 5
+  
+  # ETCD configuration
+  etcd:
+    endpoints:
+      - "backend-ai-storage-proxy-etcd:2379"
+    namespace: "local"
+    user: ""
+    password: ""
+  
+  # Storage backend configuration
+  storage:
+    # Volume configuration
+    volumes:
+      - name: "local"
+        backend: "vfs"
+        path: "/mnt/backend-ai-storage"
+        fsprefix: "local"
+    
+    # Performance settings
+    max_upload_size: "100g"
+    session_locks: {}
+
+# External storage volumes
+volumes: []
+  # - name: storage-volume
+  #   persistentVolumeClaim:
+  #     claimName: storage-pvc
+
+volumeMounts: []
+  # - name: storage-volume
+  #   mountPath: /mnt/backend-ai-storage
+
+# Environment variables
+env: {}
+  # CUSTOM_VAR: "value"
+
+envFrom: []
+  # - configMapRef:
+  #     name: my-config
+  # - secretRef:
+  #     name: my-secret
+
+# Init containers
+initContainers: []
+
+# Sidecar containers
+sidecars: []
+
+# Additional containers
+containers: []
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+  # maxUnavailable: 1
+
+# Network Policy
+networkPolicy:
+  enabled: false
+  ingress: []
+  egress: []
+
+# Monitoring
+monitoring:
+  enabled: false
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    scrapeTimeout: 10s
+    labels: {}
+    annotations: {}
+
+# Logging
+logging:
+  level: "INFO"
+  format: "console"
+
+# Dependencies
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: ""
+    username: "postgres"
+    password: ""
+    database: "backend_ai_storage"
+  primary:
+    persistence:
+      enabled: true
+      size: 8Gi
+
+redis:
+  enabled: true
+  auth:
+    enabled: false
+    password: ""
+  master:
+    persistence:
+      enabled: true
+      size: 8Gi
+
+etcd:
+  enabled: true
+  auth:
+    rbac:
+      create: false
+  persistence:
+    enabled: true
+    size: 8Gi

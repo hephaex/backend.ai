@@ -1,0 +1,40 @@
+# Minimal test - just Redis and ETCD (known working)
+manager:
+  enabled: false
+
+agent:
+  enabled: false
+
+storageProxy:
+  enabled: false
+
+appProxy:
+  enabled: false
+
+webServer:
+  enabled: false
+
+# Disable PostgreSQL for this test
+postgresql:
+  enabled: false
+
+# Just Redis and ETCD
+redis:
+  enabled: true
+  auth:
+    enabled: false
+  master:
+    persistence:
+      enabled: true
+      size: 1Gi
+  replica:
+    persistence:
+      enabled: true
+      size: 1Gi
+
+etcd:
+  enabled: true
+  persistence:
+    enabled: true
+    size: 1Gi
+  replicaCount: 1

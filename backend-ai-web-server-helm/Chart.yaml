@@ -1,0 +1,24 @@
+apiVersion: v2
+name: backend-ai-web-server
+description: A Helm chart for Backend.AI Web Server (Frontend) deployment
+type: application
+version: 0.1.0
+appVersion: "23.09"
+
+keywords:
+  - backend.ai
+  - web-server
+  - frontend
+  - ui
+  - dashboard
+
+home: https://backend.ai
+sources:
+  - https://github.com/lablup/backend.ai
+
+maintainers:
+  - name: Backend.AI Team
+    email: contact@lablup.com
+
+annotations:
+  category: Frontend

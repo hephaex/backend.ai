@@ -1,0 +1,77 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "backend-ai-app-proxy.fullname" . }}
+  labels:
+    {{- include "backend-ai-app-proxy.labels" . | nindent 4 }}
+data:
+  coordinator.toml: |
+    [logging]
+    level = "{{ .Values.logging.level }}"
+    format = "{{ .Values.logging.format }}"
+    
+    [debug]
+    enabled = {{ .Values.coordinator.config.debug }}
+    
+    [coordinator]
+    host = "{{ .Values.coordinator.config.host }}"
+    port = {{ .Values.coordinator.config.port }}
+    
+    [manager]
+    endpoint = "{{ .Values.coordinator.config.manager.endpoint }}"
+    user = "{{ .Values.coordinator.config.manager.user }}"
+    
+    [database]
+    host = "{{ .Values.coordinator.config.database.host }}"
+    port = {{ .Values.coordinator.config.database.port }}
+    name = "{{ .Values.coordinator.config.database.name }}"
+    user = "{{ .Values.coordinator.config.database.user }}"
+    
+    [redis]
+    host = "{{ .Values.coordinator.config.redis.host }}"
+    port = {{ .Values.coordinator.config.redis.port }}
+    db = {{ .Values.coordinator.config.redis.db }}
+    
+    [etcd]
+    namespace = "{{ .Values.coordinator.config.etcd.namespace }}"
+    {{- range .Values.coordinator.config.etcd.endpoints }}
+    [[etcd.endpoints]]
+    addr = "{{ . }}"
+    {{- end }}
+    
+    [worker]
+    count = {{ .Values.coordinator.config.worker.count }}
+    timeout = {{ .Values.coordinator.config.worker.timeout }}
+
+  worker.toml: |
+    [logging]
+    level = "{{ .Values.logging.level }}"
+    format = "{{ .Values.logging.format }}"
+    
+    [debug]
+    enabled = {{ .Values.worker.config.debug }}
+    
+    [worker]
+    host = "{{ .Values.worker.config.host }}"
+    port = {{ .Values.worker.config.port }}
+    timeout = {{ .Values.worker.config.worker.timeout }}
+    max_concurrent_sessions = {{ .Values.worker.config.worker.max_concurrent_sessions }}
+    
+    [coordinator]
+    endpoint = "{{ .Values.worker.config.coordinator.endpoint }}"
+    
+    [manager]
+    endpoint = "{{ .Values.worker.config.manager.endpoint }}"
+    user = "{{ .Values.worker.config.manager.user }}"
+    
+    [redis]
+    host = "{{ .Values.worker.config.redis.host }}"
+    port = {{ .Values.worker.config.redis.port }}
+    db = {{ .Values.worker.config.redis.db }}
+    
+    [etcd]
+    namespace = "{{ .Values.worker.config.etcd.namespace }}"
+    {{- range .Values.worker.config.etcd.endpoints }}
+    [[etcd.endpoints]]
+    addr = "{{ . }}"
+    {{- end }}

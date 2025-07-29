@@ -1,0 +1,44 @@
+# Simple test - infrastructure only
+manager:
+  enabled: false
+
+agent:
+  enabled: false
+
+storageProxy:
+  enabled: false
+
+appProxy:
+  enabled: false
+
+webServer:
+  enabled: false
+
+# Infrastructure only
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: "test123"
+    username: "postgres" 
+    password: "test123"
+    database: "backend_ai"
+  primary:
+    persistence:
+      enabled: true
+      size: 1Gi
+
+redis:
+  enabled: true
+  auth:
+    enabled: false
+  master:
+    persistence:
+      enabled: true
+      size: 1Gi
+
+etcd:
+  enabled: true
+  persistence:
+    enabled: true
+    size: 1Gi
+  replicaCount: 1

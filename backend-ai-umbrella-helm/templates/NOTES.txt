@@ -1,0 +1,124 @@
+🚀 Backend.AI Platform has been deployed successfully!
+
+## 📊 Deployed Components
+
+{{- if .Values.manager.enabled }}
+✅ Backend.AI Manager: Managing compute resources and user sessions
+   - Service: {{ include "backend-ai.fullname" . }}-manager:{{ .Values.manager.service.port }}
+   - Health Check: http://{{ include "backend-ai.fullname" . }}-manager:{{ .Values.manager.service.port }}/v4/manager/status
+{{- end }}
+
+{{- if .Values.agent.enabled }}
+✅ Backend.AI Agent: Executing compute workloads
+   - Service: {{ include "backend-ai.fullname" . }}-agent:{{ .Values.agent.service.port }}
+   - GPU Support: {{ if .Values.agent.gpu.enabled }}Enabled{{ else }}Disabled{{ end }}
+{{- end }}
+
+{{- if .Values.storageProxy.enabled }}
+✅ Backend.AI Storage Proxy: Managing file operations
+   - Service: {{ include "backend-ai.fullname" . }}-storage-proxy:{{ .Values.storageProxy.service.port }}
+{{- end }}
+
+{{- if .Values.appProxy.enabled }}
+{{- if .Values.appProxy.coordinator.enabled }}
+✅ Backend.AI App Proxy Coordinator: Coordinating application proxies
+   - Service: {{ include "backend-ai.fullname" . }}-app-proxy-coordinator:{{ .Values.appProxy.coordinator.service.port }}
+{{- end }}
+{{- if .Values.appProxy.worker.enabled }}
+✅ Backend.AI App Proxy Worker: Running application proxy workers
+   - Service: {{ include "backend-ai.fullname" . }}-app-proxy-worker:{{ .Values.appProxy.worker.service.port }}
+   - Replicas: {{ .Values.appProxy.worker.replicaCount }}
+{{- end }}
+{{- end }}
+
+{{- if .Values.webServer.enabled }}
+✅ Backend.AI Web Server: Frontend dashboard interface
+   - Service: {{ include "backend-ai.fullname" . }}-web-server:{{ .Values.webServer.service.port }}
+{{- if .Values.webServer.ingress.enabled }}
+   - External Access: 
+{{- range .Values.webServer.ingress.hosts }}
+     * http://{{ .host }}{{ range .paths }}{{ .path }}{{ end }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+## 🗄️ Infrastructure Services
+
+{{- if .Values.postgresql.enabled }}
+✅ PostgreSQL Database: Primary data storage
+   - Service: {{ include "backend-ai.fullname" . }}-postgresql:5432
+   - Databases: backend_ai, backend_ai_storage, backend_ai_appproxy
+{{- end }}
+
+{{- if .Values.redis.enabled }}
+✅ Redis Cache: Session and cache storage
+   - Service: {{ include "backend-ai.fullname" . }}-redis-master:6379
+{{- end }}
+
+{{- if .Values.etcd.enabled }}
+✅ ETCD: Distributed configuration and service discovery
+   - Service: {{ include "backend-ai.fullname" . }}-etcd:2379
+   - Replicas: {{ .Values.etcd.replicaCount }}
+{{- end }}
+
+## 🔧 Getting Started
+
+1. **Access the Web Interface:**
+{{- if .Values.webServer.enabled }}
+{{- if .Values.webServer.ingress.enabled }}
+{{- range .Values.webServer.ingress.hosts }}
+   Open your browser to: http://{{ .host }}
+{{- end }}
+{{- else }}
+   Port-forward the web server:
+   kubectl port-forward svc/{{ include "backend-ai.fullname" . }}-web-server {{ .Values.webServer.service.port }}:{{ .Values.webServer.service.port }}
+   
+   Then access: http://localhost:{{ .Values.webServer.service.port }}
+{{- end }}
+{{- end }}
+
+2. **Default Login Credentials:**
+   - Email: admin@lablup.com
+   - Password: wJalrXUt
+
+3. **API Access:**
+{{- if .Values.manager.enabled }}
+   - Manager API: http://{{ include "backend-ai.fullname" . }}-manager:{{ .Values.manager.service.port }}
+   - API Documentation: http://{{ include "backend-ai.fullname" . }}-manager:{{ .Values.manager.service.port }}/v4/docs
+{{- end }}
+
+## 🔍 Monitoring
+
+Check the status of all components:
+```bash
+kubectl get pods -l app.kubernetes.io/instance={{ .Release.Name }}
+kubectl get services -l app.kubernetes.io/instance={{ .Release.Name }}
+```
+
+View logs for specific components:
+```bash
+# Manager logs
+kubectl logs -l app.kubernetes.io/name=backend-ai-manager -f
+
+# Agent logs  
+kubectl logs -l app.kubernetes.io/name=backend-ai-agent -f
+
+# Web Server logs
+kubectl logs -l app.kubernetes.io/name=backend-ai-web-server -f
+```
+
+## ⚠️  Important Notes
+
+- **First-time Setup**: It may take several minutes for all services to become ready
+- **GPU Support**: {{ if .Values.agent.gpu.enabled }}GPU nodes are required for the agent{{ else }}No GPU support configured{{ end }}
+- **Data Persistence**: {{ if and .Values.postgresql.enabled .Values.postgresql.primary.persistence.enabled }}PostgreSQL data is persisted{{ else }}WARNING: No data persistence configured{{ end }}
+- **Security**: Change default passwords in production deployments
+
+## 📚 Documentation
+
+- Backend.AI Documentation: https://docs.backend.ai
+- Helm Chart Repository: https://github.com/lablup/backend.ai
+- Support: https://github.com/lablup/backend.ai/issues
+
+---
+🎉 Happy Computing with Backend.AI!

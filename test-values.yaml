@@ -1,0 +1,100 @@
+# Test values for Backend.AI deployment
+# Using nginx as placeholder images for testing Helm chart structure
+
+# Backend.AI Manager - using nginx as placeholder
+manager:
+  enabled: true
+  replicaCount: 1
+  image:
+    registry: docker.io
+    repository: nginx
+    tag: "1.25"
+  
+  service:
+    type: ClusterIP
+    port: 8080
+  
+  resources:
+    limits:
+      cpu: 500m
+      memory: 1Gi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+# Backend.AI Agent - disabled for this test
+agent:
+  enabled: false
+
+# Backend.AI Storage Proxy - disabled for this test  
+storageProxy:
+  enabled: false
+
+# Backend.AI App Proxy - disabled for this test
+appProxy:
+  enabled: false
+
+# Backend.AI Web Server - using nginx as placeholder
+webServer:
+  enabled: true
+  replicaCount: 1
+  image:
+    registry: docker.io
+    repository: nginx
+    tag: "1.25"
+  
+  service:
+    type: ClusterIP
+    port: 8090
+  
+  ingress:
+    enabled: false
+  
+  resources:
+    limits:
+      cpu: 500m
+      memory: 1Gi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+# Infrastructure Dependencies - minimal configuration
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: "test123"
+    username: "postgres"
+    password: "test123"
+    database: "backend_ai"
+  
+  primary:
+    persistence:
+      enabled: true
+      size: 2Gi
+    
+    # Remove the problematic init script for testing
+    initdb:
+      scripts: {}
+
+redis:
+  enabled: true
+  auth:
+    enabled: false
+  
+  master:
+    persistence:
+      enabled: true
+      size: 1Gi
+  
+  replica:
+    persistence:
+      enabled: true
+      size: 1Gi
+
+etcd:
+  enabled: true
+  persistence:
+    enabled: true
+    size: 1Gi
+  
+  replicaCount: 1
