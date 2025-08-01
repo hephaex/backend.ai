@@ -12,9 +12,9 @@ manager:
   enabled: true
   replicaCount: 1
   image:
-    registry: ghcr.io
-    repository: lablup/backend.ai-manager
-    tag: "23.09"
+    registry: localhost:5000
+    repository: backend.ai-manager
+    tag: "25.06"
   
   service:
     type: ClusterIP
@@ -64,9 +64,9 @@ agent:
   enabled: true
   replicaCount: 1
   image:
-    registry: ghcr.io
-    repository: lablup/backend.ai-agent
-    tag: "23.09"
+    registry: localhost:5000
+    repository: backend.ai-agent
+    tag: "25.06"
   
   service:
     type: ClusterIP
@@ -107,9 +107,9 @@ storageProxy:
   enabled: true
   replicaCount: 1
   image:
-    registry: ghcr.io
-    repository: lablup/backend.ai-storage-proxy
-    tag: "23.09"
+    registry: localhost:5000
+    repository: backend.ai-storage-proxy
+    tag: "25.06"
   
   service:
     type: ClusterIP
@@ -150,9 +150,9 @@ appProxy:
     enabled: true
     replicaCount: 1
     image:
-      registry: ghcr.io
-      repository: lablup/backend.ai-app-proxy-coordinator
-      tag: "23.09"
+      registry: localhost:5000
+      repository: backend.ai-app-proxy-coordinator
+      tag: "25.06"
     service:
       type: ClusterIP
       port: 10200
@@ -168,9 +168,9 @@ appProxy:
     enabled: true
     replicaCount: 2
     image:
-      registry: ghcr.io
-      repository: lablup/backend.ai-app-proxy-worker
-      tag: "23.09"
+      registry: localhost:5000
+      repository: backend.ai-app-proxy-worker
+      tag: "25.06"
     service:
       type: ClusterIP
       port: 10201
@@ -206,9 +206,9 @@ webServer:
   enabled: true
   replicaCount: 1
   image:
-    registry: ghcr.io
-    repository: lablup/backend.ai-web-server
-    tag: "23.09"
+    registry: localhost:5000
+    repository: backend.ai-web-server
+    tag: "25.06"
   
   service:
     type: ClusterIP

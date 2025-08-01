@@ -23,9 +23,10 @@ data:
     {{- end }}
 
     [manager]
-    num-proc = 4
-    pid-file = "/tmp/backend.ai-manager.pid"
-    id = "main"
+    num-proc = {{ .Values.config.manager.num_proc }}
+    pid-file = "{{ .Values.config.manager.pid_file }}"
+    id = "{{ .Values.config.manager.id }}"
+    ipc-base-path = "{{ .Values.config.ipc.base_path }}"
     
     [logging]
     level = "{{ .Values.config.logging.level }}"

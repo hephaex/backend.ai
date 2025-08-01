@@ -1,0 +1,51 @@
+# Full infrastructure deployment with PostgreSQL, Redis, and ETCD
+manager:
+  enabled: false
+
+agent:
+  enabled: false
+
+storageProxy:
+  enabled: false
+
+appProxy:
+  enabled: false
+
+webServer:
+  enabled: false
+
+# Enable all infrastructure components
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: "test123"
+    username: "postgres" 
+    password: "test123"
+    database: "backend_ai"
+  primary:
+    persistence:
+      enabled: true
+      size: 2Gi
+    # Clean single database setup
+    initdb:
+      scripts: {}
+
+redis:
+  enabled: true
+  auth:
+    enabled: false
+  master:
+    persistence:
+      enabled: true
+      size: 1Gi
+  replica:
+    persistence:
+      enabled: true
+      size: 1Gi
+
+etcd:
+  enabled: true
+  persistence:
+    enabled: true
+    size: 1Gi
+  replicaCount: 1

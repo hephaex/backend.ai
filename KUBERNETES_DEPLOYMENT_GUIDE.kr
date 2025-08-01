@@ -1,0 +1,665 @@
+# Backend.AI 쿠버네티스 배포 가이드
+
+## 개요
+이 가이드는 Harbor2 Docker Registry와 Helm 차트를 사용하여 쿠버네티스에서 Backend.AI 서비스를 배포하고 관리하는 단계별 지침을 제공합니다.
+
+## 사전 요구사항
+
+### 필수 도구
+- 쿠버네티스 클러스터 (minikube, kind, 또는 프로덕션 클러스터)
+- Helm 3.x 설치
+- 클러스터에 대해 구성된 kubectl
+- Docker (이미지 빌드용)
+
+### 배포될 서비스
+- Harbor2 Docker Registry (컨테이너 이미지 저장소)
+- Backend.AI 핵심 서비스들 (Manager, Agent, Storage Proxy, App Proxy, Web Server)
+
+### 빌드된 이미지
+모든 Backend.AI 이미지가 Harbor Registry에 빌드되고 푸시되었는지 확인:
+- `harbor.backend-ai.local/backend-ai/manager:25.06`
+- `harbor.backend-ai.local/backend-ai/agent:25.06`
+- `harbor.backend-ai.local/backend-ai/storage-proxy:25.06`
+- `harbor.backend-ai.local/backend-ai/app-proxy-coordinator:25.06`
+- `harbor.backend-ai.local/backend-ai/app-proxy-worker:25.06`
+- `harbor.backend-ai.local/backend-ai/web-server:25.06`
+
+## Harbor2 Docker Registry 설정
+
+### Harbor Helm Repository 추가
+```bash
+# Harbor Helm repository 추가
+helm repo add harbor https://helm.goharbor.io
+helm repo update
+```
+
+### Harbor 배포
+```bash
+# Harbor 네임스페이스 생성
+kubectl create namespace harbor-system
+
+# Harbor values 파일 생성
+cat > harbor-values.yaml << 'EOF'
+expose:
+  type: nodePort
+  tls:
+    enabled: false
+  nodePort:
+    name: harbor
+    ports:
+      http:
+        port: 80
+        nodePort: 30002
+      https:
+        port: 443
+        nodePort: 30003
+
+externalURL: http://harbor.backend-ai.local:30002
+
+harborAdminPassword: "Harbor12345"
+
+chartmuseum:
+  enabled: false
+notary:
+  enabled: false
+trivy:
+  enabled: false
+
+persistence:
+  enabled: true
+  resourcePolicy: "keep"
+  persistentVolumeClaim:
+    registry:
+      size: 20Gi
+    database:
+      size: 1Gi
+    redis:
+      size: 1Gi
+
+database:
+  type: internal
+
+redis:
+  type: internal
+EOF
+
+# Harbor 설치
+helm install harbor harbor/harbor -n harbor-system -f harbor-values.yaml
+
+# Harbor가 준비될 때까지 대기 (약 5-10분)
+kubectl wait --for=condition=ready pod -l app=harbor -n harbor-system --timeout=600s
+```
+
+### Harbor 접근 설정
+```bash
+# Harbor UI 접근을 위한 hosts 파일 설정 (로컬 개발용)
+echo "$(minikube ip) harbor.backend-ai.local" | sudo tee -a /etc/hosts
+
+# 또는 NodePort로 직접 접근
+kubectl get svc -n harbor-system
+
+# Harbor UI 접근: http://harbor.backend-ai.local:30002
+# 기본 계정: admin / Harbor12345
+```
+
+### Harbor 프로젝트 생성
+```bash
+# Harbor CLI 도구 설치 (선택사항)
+# 또는 웹 UI에서 직접 생성
+
+# 웹 UI에서 다음 프로젝트 생성:
+# - 프로젝트명: backend-ai
+# - 접근 레벨: Public 또는 Private
+# - 취약점 스캔: 활성화 (선택)
+```
+
+### Docker Registry 로그인 설정
+```bash
+# Harbor에 Docker 로그인
+docker login harbor.backend-ai.local:30002
+# Username: admin
+# Password: Harbor12345
+
+# Kubernetes에서 Harbor 접근을 위한 시크릿 생성
+kubectl create secret docker-registry harbor-registry-secret \
+  --docker-server=harbor.backend-ai.local:30002 \
+  --docker-username=admin \
+  --docker-password=Harbor12345 \
+  --docker-email=admin@backend-ai.local \
+  -n backend-ai
+```
+
+### Backend.AI 이미지 빌드 및 푸시
+```bash
+# 모든 Backend.AI 서비스 이미지 빌드 (Harbor 태그로)
+docker build -f Dockerfile.manager -t harbor.backend-ai.local:30002/backend-ai/manager:25.06 .
+docker build -f Dockerfile.agent -t harbor.backend-ai.local:30002/backend-ai/agent:25.06 .
+docker build -f Dockerfile.storage-proxy -t harbor.backend-ai.local:30002/backend-ai/storage-proxy:25.06 .
+docker build -f Dockerfile.app-proxy-coordinator -t harbor.backend-ai.local:30002/backend-ai/app-proxy-coordinator:25.06 .
+docker build -f Dockerfile.app-proxy-worker -t harbor.backend-ai.local:30002/backend-ai/app-proxy-worker:25.06 .
+docker build -f Dockerfile.web-server -t harbor.backend-ai.local:30002/backend-ai/web-server:25.06 .
+
+# 모든 이미지를 Harbor 레지스트리에 푸시
+docker push harbor.backend-ai.local:30002/backend-ai/manager:25.06
+docker push harbor.backend-ai.local:30002/backend-ai/agent:25.06
+docker push harbor.backend-ai.local:30002/backend-ai/storage-proxy:25.06
+docker push harbor.backend-ai.local:30002/backend-ai/app-proxy-coordinator:25.06
+docker push harbor.backend-ai.local:30002/backend-ai/app-proxy-worker:25.06
+docker push harbor.backend-ai.local:30002/backend-ai/web-server:25.06
+
+# Harbor UI에서 이미지 업로드 확인
+# http://harbor.backend-ai.local:30002/harbor/projects/1/repositories
+```
+
+## 쿠버네티스 네임스페이스 설정
+
+```bash
+# Backend.AI 네임스페이스 생성
+kubectl create namespace backend-ai
+
+# 기본 네임스페이스 컨텍스트 설정 (선택사항)
+kubectl config set-context --current --namespace=backend-ai
+```
+
+## 배포 순서 (시작)
+
+### 0. Harbor Registry 먼저 배포
+```bash
+# Harbor가 먼저 실행되어야 Backend.AI 이미지를 저장할 수 있음
+kubectl get pods -n harbor-system
+# 모든 Harbor pods가 Running 상태인지 확인
+
+# Harbor 서비스 상태 확인
+kubectl get svc -n harbor-system harbor
+```
+
+### 1. Helm 차트의 이미지 레지스트리 설정 업데이트
+```bash
+# 모든 Backend.AI Helm 차트의 values.yaml에서 이미지 레지스트리 설정 변경
+# 예시: backend-ai-manager-helm/values.yaml
+cat > update-registry.sh << 'EOF'
+#!/bin/bash
+CHARTS=("backend-ai-manager-helm" "backend-ai-agent-helm" "backend-ai-storage-proxy-helm" 
+        "backend-ai-app-proxy-helm" "backend-ai-web-server-helm")
+
+for chart in "${CHARTS[@]}"; do
+    if [ -f "$chart/values.yaml" ]; then
+        # registry 설정 업데이트
+        sed -i.bak 's|registry: localhost:5000|registry: harbor.backend-ai.local:30002|g' "$chart/values.yaml"
+        sed -i.bak 's|repository: backend.ai-|repository: backend-ai/|g' "$chart/values.yaml"
+        
+        # imagePullSecrets 추가
+        if ! grep -q "imagePullSecrets" "$chart/values.yaml"; then
+            echo "imagePullSecrets:" >> "$chart/values.yaml"
+            echo "  - name: harbor-registry-secret" >> "$chart/values.yaml"
+        fi
+        
+        echo "Updated $chart/values.yaml"
+    fi
+done
+EOF
+
+chmod +x update-registry.sh
+./update-registry.sh
+```
+
+### 2. Helm 차트 의존성 설치
+```bash
+# 각 서비스에 대한 Helm 차트 의존성 업데이트
+cd backend-ai-manager-helm && helm dependency build && cd ..
+cd backend-ai-agent-helm && helm dependency build && cd ..
+cd backend-ai-storage-proxy-helm && helm dependency build && cd ..
+cd backend-ai-app-proxy-helm && helm dependency build && cd ..
+cd backend-ai-web-server-helm && helm dependency build && cd ..
+```
+
+### 3. 순서대로 서비스 배포
+
+#### 1단계: 매니저 배포 (핵심 서비스)
+```bash
+# Harbor registry secret이 있는지 확인
+kubectl get secret harbor-registry-secret -n backend-ai
+
+helm install backend-ai-manager ./backend-ai-manager-helm -n backend-ai
+
+# 매니저가 준비될 때까지 대기
+kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=backend-ai-manager -n backend-ai --timeout=300s
+
+# 이미지 Pull 문제 발생시 확인
+kubectl describe pod -l app.kubernetes.io/name=backend-ai-manager -n backend-ai
+```
+
+#### 2단계: 에이전트 배포
+```bash
+helm install backend-ai-agent ./backend-ai-agent-helm -n backend-ai
+
+# 에이전트가 준비될 때까지 대기
+kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=backend-ai-agent -n backend-ai --timeout=300s
+```
+
+#### 3단계: 스토리지 프록시 배포
+```bash
+helm install backend-ai-storage-proxy ./backend-ai-storage-proxy-helm -n backend-ai
+
+# 스토리지 프록시가 준비될 때까지 대기
+kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=backend-ai-storage-proxy -n backend-ai --timeout=300s
+```
+
+#### 4단계: 앱 프록시 배포
+```bash
+helm install backend-ai-app-proxy ./backend-ai-app-proxy-helm -n backend-ai
+
+# 앱 프록시가 준비될 때까지 대기
+kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=backend-ai-app-proxy -n backend-ai --timeout=300s
+```
+
+#### 5단계: 웹 서버 배포
+```bash
+helm install backend-ai-web-server ./backend-ai-web-server-helm -n backend-ai
+
+# 웹 서버가 준비될 때까지 대기
+kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=backend-ai-web-server -n backend-ai --timeout=300s
+```
+
+### 4. 배포 확인
+```bash
+# Harbor 시스템 확인
+kubectl get pods -n harbor-system
+kubectl get svc -n harbor-system
+
+# Backend.AI 서비스 확인
+kubectl get pods -n backend-ai
+kubectl get svc -n backend-ai
+
+# Helm 릴리스 확인
+helm list -n harbor-system
+helm list -n backend-ai
+
+# Harbor UI에서 이미지 확인
+echo "Harbor UI: http://harbor.backend-ai.local:30002"
+echo "Login: admin / Harbor12345"
+
+# 특정 서비스의 로그 확인
+kubectl logs -n backend-ai -l app.kubernetes.io/name=backend-ai-manager --tail=50
+
+# Harbor 레지스트리 연결 테스트
+kubectl run test-harbor --rm -i --tty --image=busybox --restart=Never -n backend-ai -- \
+  wget -qO- http://harbor.backend-ai.local:30002/api/v2.0/projects
+```
+
+## 서비스 관리 명령어
+
+### 서비스 상태 확인
+```bash
+# 모든 Backend.AI 리소스 조회
+kubectl get all -n backend-ai
+
+# 특정 서비스 로그 확인
+kubectl logs -n backend-ai -l app.kubernetes.io/name=backend-ai-manager -f
+
+# 서비스 엔드포인트 확인
+kubectl get endpoints -n backend-ai
+```
+
+### 서비스 스케일링
+```bash
+# 매니저 복제본 스케일링
+kubectl scale deployment backend-ai-manager -n backend-ai --replicas=2
+
+# 에이전트 복제본 스케일링
+kubectl scale deployment backend-ai-agent -n backend-ai --replicas=3
+```
+
+### 서비스 업데이트
+```bash
+# 새로운 구성으로 서비스 업그레이드
+helm upgrade backend-ai-manager ./backend-ai-manager-helm -n backend-ai
+
+# 팟 강제 재시작
+kubectl rollout restart deployment/backend-ai-manager -n backend-ai
+```
+
+## 종료 순서 (중지)
+
+### 1. Backend.AI 서비스 정상 종료
+```bash
+# 역순으로 Backend.AI 서비스 제거
+helm uninstall backend-ai-web-server -n backend-ai
+helm uninstall backend-ai-app-proxy -n backend-ai
+helm uninstall backend-ai-storage-proxy -n backend-ai
+helm uninstall backend-ai-agent -n backend-ai
+helm uninstall backend-ai-manager -n backend-ai
+
+# 우산 차트 제거
+helm uninstall backend-ai -n backend-ai 2>/dev/null || true
+```
+
+### 1-1. Harbor Registry 종료 (선택사항)
+```bash
+# Harbor 종료 (주의: 모든 이미지가 삭제됩니다)
+helm uninstall harbor -n harbor-system
+
+# Harbor 네임스페이스 정리
+kubectl delete namespace harbor-system
+```
+
+### 2. 리소스 정리
+```bash
+# 남은 팟/작업 삭제
+kubectl delete pods --all -n backend-ai
+kubectl delete jobs --all -n backend-ai
+
+# 영구 볼륨 클레임 삭제 (경고: 모든 데이터가 삭제됩니다)
+kubectl delete pvc --all -n backend-ai
+
+# 컨피그맵과 시크릿 삭제 (시스템 것 제외)
+kubectl delete configmap --field-selector metadata.name!=kube-root-ca.crt -n backend-ai
+kubectl delete secret --all -n backend-ai
+```
+
+### 3. 정상 종료 확인
+```bash
+# Backend.AI 리소스가 남아있지 않은지 확인
+kubectl get all,pvc,configmap,secret -n backend-ai
+
+# kube-root-ca.crt 컨피그맵만 남아있어야 함
+```
+
+### 4. 선택사항: 네임스페이스 제거
+```bash
+# 전체 네임스페이스 제거 (더 이상 필요하지 않은 경우에만)
+kubectl delete namespace backend-ai
+```
+
+## 구성 관리
+
+### 주요 구성 파일
+- `backend-ai-manager-helm/values.yaml` - 매니저 서비스 구성
+- `backend-ai-agent-helm/values.yaml` - 에이전트 서비스 구성  
+- `backend-ai-storage-proxy-helm/values.yaml` - 스토리지 프록시 구성
+- `backend-ai-app-proxy-helm/values.yaml` - 앱 프록시 구성
+- `backend-ai-web-server-helm/values.yaml` - 웹 서버 구성
+
+### 중요한 구성 매개변수
+```yaml
+# Harbor 레지스트리 설정 (모든 values.yaml 파일에서)
+image:
+  registry: harbor.backend-ai.local:30002
+  repository: backend-ai/<service>
+  tag: "25.06"
+
+# Harbor registry secret 설정
+imagePullSecrets:
+  - name: harbor-registry-secret
+
+# 리소스 제한
+resources:
+  limits:
+    cpu: 2
+    memory: 4Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+# install-dev.sh와 일치하는 서비스 구성
+config:
+  ipc:
+    base_path: "/tmp/backend.ai/ipc"
+  manager:
+    num_proc: 1
+    pid_file: "/tmp/backend.ai-manager.pid"
+    id: "main"
+```
+
+## 문제 해결
+
+### 일반적인 이슈
+
+#### 1. 이미지 풀 오류
+```bash
+# Harbor 레지스트리에 접근 가능한지 확인
+curl http://harbor.backend-ai.local:30002/v2/_catalog
+
+# Harbor API를 통한 프로젝트 확인
+curl -u admin:Harbor12345 http://harbor.backend-ai.local:30002/api/v2.0/projects
+
+# 특정 이미지가 존재하는지 확인
+curl -u admin:Harbor12345 http://harbor.backend-ai.local:30002/api/v2.0/projects/backend-ai/repositories
+
+# Docker login 상태 확인
+docker login harbor.backend-ai.local:30002
+
+# Kubernetes secret 확인
+kubectl get secret harbor-registry-secret -n backend-ai -o yaml
+```
+
+#### 2. 리소스 제약
+```bash
+# 노드 리소스 확인
+kubectl describe nodes
+
+# 팟 리소스 사용량 확인
+kubectl top pods -n backend-ai
+
+# 필요시 values.yaml에서 리소스 요청량 감소
+```
+
+#### 3. 서비스 연결 이슈
+```bash
+# 서비스 DNS 해석 테스트
+kubectl run test-pod --rm -i --tty --image=busybox --restart=Never -n backend-ai -- nslookup backend-ai-manager
+
+# 서비스 연결 테스트
+kubectl run test-pod --rm -i --tty --image=busybox --restart=Never -n backend-ai -- wget -qO- http://backend-ai-manager:8080/
+```
+
+#### 4. 구성 이슈
+```bash
+# 컨피그맵 내용 확인
+kubectl get configmap backend-ai-manager-config -o yaml -n backend-ai
+
+# TOML 구문 검증
+kubectl exec -it <manager-pod> -n backend-ai -- python -c "import tomli; print('Valid TOML')"
+```
+
+### 디버그 명령어
+```bash
+# 상세한 팟 정보 조회
+kubectl describe pod <pod-name> -n backend-ai
+
+# 타임스탬프가 포함된 팟 로그 조회
+kubectl logs <pod-name> -n backend-ai --timestamps=true
+
+# 팟에서 명령어 실행
+kubectl exec -it <pod-name> -n backend-ai -- bash
+
+# 로컬 테스트를 위한 포트 포워딩
+kubectl port-forward svc/backend-ai-manager 8080:8080 -n backend-ai
+```
+
+## 성능 모니터링
+
+### 리소스 모니터링
+```bash
+# 리소스 사용량 모니터링
+kubectl top pods -n backend-ai
+kubectl top nodes
+
+# 팟 상태 지속적으로 모니터링
+watch kubectl get pods -n backend-ai
+```
+
+### 로그 집계
+```bash
+# 모든 매니저 팟의 로그 추적
+kubectl logs -f -l app.kubernetes.io/name=backend-ai-manager -n backend-ai
+
+# 로그를 파일로 내보내기
+kubectl logs deployment/backend-ai-manager -n backend-ai > manager.log
+```
+
+## 백업 및 복구
+
+### 데이터 백업
+```bash
+# PostgreSQL 데이터 백업
+kubectl exec -it backend-ai-manager-postgresql-0 -n backend-ai -- pg_dump -U postgres backend_ai > backup.sql
+
+# ETCD 데이터 백업
+kubectl exec -it backend-ai-manager-etcd-0 -n backend-ai -- etcdctl snapshot save /tmp/snapshot.db
+kubectl cp backend-ai-manager-etcd-0:/tmp/snapshot.db ./etcd-backup.db -n backend-ai
+```
+
+### 데이터 복구
+```bash
+# PostgreSQL 데이터 복구
+kubectl exec -i backend-ai-manager-postgresql-0 -n backend-ai -- psql -U postgres backend_ai < backup.sql
+
+# ETCD 데이터 복구
+kubectl cp ./etcd-backup.db backend-ai-manager-etcd-0:/tmp/snapshot.db -n backend-ai
+kubectl exec -it backend-ai-manager-etcd-0 -n backend-ai -- etcdctl snapshot restore /tmp/snapshot.db
+```
+
+## 보안 고려사항
+
+### 네트워크 정책
+```yaml
+# 트래픽을 제한하는 네트워크 정책 예시
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-ai-network-policy
+  namespace: backend-ai
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: backend-ai
+```
+
+### RBAC 구성
+```bash
+# 최소 권한으로 서비스 계정 생성
+kubectl create serviceaccount backend-ai-service-account -n backend-ai
+
+# 적절한 RBAC 정책 적용
+kubectl apply -f backend-ai-rbac.yaml
+```
+
+## 유지보수
+
+### 정기 작업
+1. **리소스 사용량 모니터링** 및 필요에 따른 제한 조정
+2. 보안 패치를 위한 **정기적인 이미지 업데이트**
+3. 주요 업데이트 전 **데이터 백업**
+4. 오류 및 성능 이슈를 위한 **로그 모니터링**
+5. **재해 복구** 절차 정기적 테스트
+
+### 업데이트 절차
+1. 업데이트된 태그로 새 이미지 빌드
+2. 레지스트리에 이미지 푸시
+3. 새 태그로 Helm 차트 값 업데이트
+4. `helm upgrade`를 사용하여 롤링 업데이트 수행
+5. 배포 모니터링 및 이슈 발생시 롤백
+
+## 빠른 참조
+
+### 자주 사용하는 명령어
+```bash
+# Harbor 상태 확인
+kubectl get all -n harbor-system
+curl http://harbor.backend-ai.local:30002/api/v2.0/systeminfo
+
+# Backend.AI 전체 상태 확인
+kubectl get all -n backend-ai
+
+# 서비스 로그 확인
+kubectl logs -f -l app.kubernetes.io/name=backend-ai-manager -n backend-ai
+
+# 서비스 재시작
+kubectl rollout restart deployment/backend-ai-manager -n backend-ai
+
+# 리소스 사용량 확인
+kubectl top pods -n backend-ai
+kubectl top pods -n harbor-system
+
+# Harbor UI 접근
+echo "Harbor UI: http://harbor.backend-ai.local:30002"
+echo "Login: admin / Harbor12345"
+
+# Backend.AI 서비스만 정리 (Harbor는 유지)
+helm uninstall backend-ai-manager backend-ai-agent backend-ai-storage-proxy backend-ai-app-proxy backend-ai-web-server -n backend-ai
+kubectl delete pvc --all -n backend-ai
+
+# Harbor 포함 전체 정리
+helm uninstall backend-ai-manager backend-ai-agent backend-ai-storage-proxy backend-ai-app-proxy backend-ai-web-server -n backend-ai
+helm uninstall harbor -n harbor-system
+kubectl delete pvc --all -n backend-ai
+kubectl delete pvc --all -n harbor-system
+kubectl delete namespace backend-ai harbor-system
+```
+
+### 긴급 상황 대응
+```bash
+# Backend.AI 서비스 즉시 중지
+kubectl delete deployment --all -n backend-ai
+
+# Harbor 서비스 즉시 중지 (필요한 경우)
+kubectl delete deployment --all -n harbor-system
+
+# 팟 강제 삭제
+kubectl delete pods --all --force --grace-period=0 -n backend-ai
+kubectl delete pods --all --force --grace-period=0 -n harbor-system
+
+# 네임스페이스 강제 삭제
+kubectl delete namespace backend-ai --force --grace-period=0
+kubectl delete namespace harbor-system --force --grace-period=0
+```
+
+## Harbor2 Registry 관리
+
+### Harbor 백업
+```bash
+# Harbor 데이터베이스 백업
+kubectl exec -it harbor-database-0 -n harbor-system -- pg_dump -U postgres registry > harbor-backup.sql
+
+# Harbor 이미지 레지스트리 데이터 백업
+kubectl exec -it harbor-registry-0 -n harbor-system -- tar -czf /tmp/registry-backup.tar.gz /storage
+kubectl cp harbor-registry-0:/tmp/registry-backup.tar.gz ./harbor-registry-backup.tar.gz -n harbor-system
+```
+
+### Harbor 복원
+```bash
+# Harbor 데이터베이스 복원
+kubectl exec -i harbor-database-0 -n harbor-system -- psql -U postgres registry < harbor-backup.sql
+
+# Harbor 이미지 레지스트리 데이터 복원
+kubectl cp ./harbor-registry-backup.tar.gz harbor-registry-0:/tmp/registry-backup.tar.gz -n harbor-system
+kubectl exec -it harbor-registry-0 -n harbor-system -- tar -xzf /tmp/registry-backup.tar.gz -C /
+```
+
+### Harbor 모니터링
+```bash
+# Harbor 서비스 상태 확인
+kubectl get pods -n harbor-system
+kubectl get svc -n harbor-system
+
+# Harbor API를 통한 시스템 정보 확인
+curl -u admin:Harbor12345 http://harbor.backend-ai.local:30002/api/v2.0/systeminfo
+
+# Harbor 저장소 사용량 확인
+curl -u admin:Harbor12345 http://harbor.backend-ai.local:30002/api/v2.0/statistics
+
+# Harbor 로그 확인
+kubectl logs -f -l app=harbor-core -n harbor-system
+kubectl logs -f -l app=harbor-registry -n harbor-system
+```
+
+---
+
+**참고:** 이 가이드는 Python 3.13-slim 기본 이미지와 Harbor2 Docker Registry를 사용하는 Backend.AI 버전 25.06을 기준으로 합니다. 특정 배포에 맞게 버전과 구성을 조정하세요.

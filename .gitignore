@@ -159,3 +159,13 @@ backup.*.json
 .history/
 GEMINI.md
 SPRINT_PLAN.md
+bin/
+include/
+share/
+lib/
+*.pyc
+__pycache__/
+.Python
+*.egg-info/
+dist/
+build/

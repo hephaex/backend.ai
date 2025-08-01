@@ -1,0 +1,48 @@
+# Backend.AI Manager Dockerfile
+FROM python:3.13-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy Backend.AI source code (exclude development config)
+COPY src ./src
+COPY pyproject.toml ./
+COPY requirements.txt ./
+COPY VERSION ./
+
+# Install Python dependencies using the built-in installation method
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install Backend.AI in development mode
+RUN pip install -e .
+
+# Install the local Backend.AI packages
+ENV PYTHONPATH="/app/src:/app:$PYTHONPATH"
+
+# Set Backend.AI environment variables to proper container paths
+ENV BACKEND_AI_IPC_BASE_PATH="/tmp/backend.ai/ipc"
+ENV BACKEND_AI_SCRATCH_ROOT="/tmp/backend.ai/scratch"
+ENV BACKEND_AI_PID_FILE="/tmp/backend.ai-manager.pid"
+ENV BACKEND_AI_VAR_BASE_PATH="/var/lib/backend.ai"
+
+# Create necessary directories
+RUN mkdir -p /tmp/backend.ai/ipc /tmp/backend.ai/scratch /var/lib/backend.ai
+
+# Create user and set permissions
+RUN useradd -m -s /bin/bash backend.ai \
+    && chown -R backend.ai:backend.ai /app \
+    && chown -R backend.ai:backend.ai /tmp/backend.ai \
+    && chown -R backend.ai:backend.ai /var/lib/backend.ai
+
+USER backend.ai
+
+# Expose port
+EXPOSE 8080
+
+# Command to run Backend.AI Manager
+CMD ["python", "-m", "ai.backend.manager.server"]

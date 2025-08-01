@@ -1,0 +1,68 @@
+# Add Backend.AI Manager to existing infrastructure
+manager:
+  enabled: true
+  replicaCount: 1
+  image:
+    registry: docker.io
+    repository: nginx  # Placeholder image for testing chart structure
+    tag: "1.25"
+  
+  service:
+    type: ClusterIP
+    port: 8080
+  
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+    requests:
+      cpu: 250m
+      memory: 512Mi
+
+# Disable other Backend.AI services
+agent:
+  enabled: false
+
+storageProxy:
+  enabled: false
+
+appProxy:
+  enabled: false
+
+webServer:
+  enabled: false
+
+# Use existing working infrastructure configuration exactly as deployed
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: "test123"
+    username: "postgres"
+    database: "backend_ai"
+    # Don't override password to avoid conflicts
+  primary:
+    persistence:
+      enabled: true
+      size: 2Gi
+    initdb:
+      scripts: {}
+
+redis:
+  enabled: true
+  auth:
+    enabled: false
+  master:
+    persistence:
+      enabled: true
+      size: 1Gi
+  replica:
+    persistence:
+      enabled: true
+      size: 1Gi
+
+etcd:
+  enabled: true
+  persistence:
+    enabled: true
+    size: 1Gi
+  replicaCount: 1

@@ -56,6 +56,12 @@ spec:
             {{- end }}
             - name: BACKEND_AI_MANAGER_CONFIG_FILE
               value: "/etc/backend.ai/manager.toml"
+            - name: BACKEND_AI_IPC_BASE_PATH
+              value: "/tmp/backend.ai/ipc"
+            - name: BACKEND_AI_SCRATCH_ROOT
+              value: "/tmp/backend.ai/scratch"
+            - name: BACKEND_AI_PID_FILE
+              value: "/tmp/backend.ai-manager.pid"
             - name: BACKEND_AI_DB_PASSWORD
               valueFrom:
                 secretKeyRef:

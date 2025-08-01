@@ -19,7 +19,7 @@ coordinator:
   # Image settings
   image:
     registry: localhost:30002
-    repository: backend-ai/app-proxy-coordinator
+    repository: backend.ai-app-proxy-coordinator
     tag: "25.06"
     pullPolicy: IfNotPresent
     pullSecrets: []
@@ -86,7 +86,7 @@ worker:
   # Image settings
   image:
     registry: localhost:30002
-    repository: backend-ai/app-proxy-worker
+    repository: backend.ai-app-proxy-worker
     tag: "25.06"
     pullPolicy: IfNotPresent
     pullSecrets: []

@@ -1,0 +1,9 @@
+dependencies:
+- name: redis
+  repository: https://charts.bitnami.com/bitnami
+  version: 21.2.13
+- name: etcd
+  repository: https://charts.bitnami.com/bitnami
+  version: 12.0.14
+digest: sha256:09d7cede0e094a1ff2942a6b765f4c1dcf29543cb72ab62f1096c10a6e1a2d4d
+generated: "2025-07-30T11:31:09.760947+09:00"

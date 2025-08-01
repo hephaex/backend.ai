@@ -1,0 +1,32 @@
+# Backend.AI Agent Dockerfile
+FROM python:3.13-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    docker.io \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy Backend.AI source code
+COPY . .
+
+# Install Python dependencies using the built-in installation method
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install the local Backend.AI packages
+ENV PYTHONPATH="/app/src:/app:$PYTHONPATH"
+
+# Create user and set permissions
+RUN useradd -m -s /bin/bash backend.ai \
+    && chown -R backend.ai:backend.ai /app
+
+USER backend.ai
+
+# Expose ports
+EXPOSE 6011 6019 6020
+
+# Command to run Backend.AI Agent
+CMD ["python", "-m", "ai.backend.agent.server"]

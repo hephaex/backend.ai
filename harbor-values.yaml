@@ -1,0 +1,41 @@
+expose:
+  type: nodePort
+  tls:
+    enabled: false
+  nodePort:
+    name: harbor
+    ports:
+      http:
+        port: 80
+        nodePort: 30002
+      https:
+        port: 443
+        nodePort: 30003
+
+externalURL: http://harbor.backend-ai.local:30002
+
+harborAdminPassword: "Harbor12345"
+
+chartmuseum:
+  enabled: false
+notary:
+  enabled: false
+trivy:
+  enabled: false
+
+persistence:
+  enabled: true
+  resourcePolicy: "keep"
+  persistentVolumeClaim:
+    registry:
+      size: 20Gi
+    database:
+      size: 1Gi
+    redis:
+      size: 1Gi
+
+database:
+  type: internal
+
+redis:
+  type: internal

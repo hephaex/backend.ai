@@ -10,7 +10,7 @@ global:
 # Image settings
 image:
   registry: localhost:30002
-  repository: backend-ai/storage-proxy
+  repository: backend.ai-storage-proxy
   tag: "25.06"
   pullPolicy: IfNotPresent
   pullSecrets: []

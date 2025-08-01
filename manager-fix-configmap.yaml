@@ -1,0 +1,49 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-ai-manager-config
+  namespace: backend-ai
+data:
+  manager.toml: |
+    [etcd]
+    namespace = "/sorna"
+    endpoints = ["backend-ai-manager-etcd:2379"]
+
+    [db]
+    type = "postgresql"
+    addr = { host = "backend-ai-manager-postgresql", port = 5432 }
+    name = "backend_ai"
+    user = "postgres"
+
+    [redis]
+    addr = { host = "backend-ai-manager-redis-master", port = 6379 }
+
+    [manager]
+    num-proc = 1
+    pid-file = "/tmp/backend.ai-manager.pid"
+    id = "main"
+    ipc-base-path = "/tmp/backend.ai/ipc"
+
+    [logging]
+    level = "INFO"
+    drivers = ["console"]
+
+    [debug]
+    enabled = false
+
+    [session]
+    redis = { host = "backend-ai-manager-redis-master", port = 6379 }
+
+    [api.auth]
+    session-timeout = 3600
+
+    [api.ratelimit]
+    enabled = true
+    redis = { host = "backend-ai-manager-redis-master", port = 6379 }
+
+    [manager.apps]
+    cors-enabled = true
+    cors-origins = ["*"]
+
+    [manager.plugins]
+    scheduler = "fifo"

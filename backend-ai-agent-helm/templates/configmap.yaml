@@ -20,13 +20,15 @@ data:
     region = "{{ .Values.config.agent.region }}"
     scaling-group = "{{ .Values.config.agent.scaling_group }}"
     watcher-port = {{ .Values.config.agent.watcher_port }}
+    ipc-base-path = "{{ .Values.config.ipc.base_path }}"
+    var-base-path = "{{ .Values.config.var.base_path }}"
     
     [manager]
     endpoint = "{{ .Values.config.manager.endpoint }}"
     user = "{{ .Values.config.manager.user }}"
     
     [container]
-    backend = "{{ .Values.config.container.backend }}"
+    backend = "{{ .Values.config.agent.backend }}"
     scratch-root = "{{ .Values.config.container.scratch_root }}"
     
     [container.registry]

@@ -16,6 +16,7 @@ data:
     [api]
     host = "{{ .Values.config.api.host }}"
     port = {{ .Values.config.api.port }}
+    ipc-base-path = "/tmp/backend.ai/ipc"
     {{- if .Values.config.api.ssl.enabled }}
     ssl-enabled = true
     ssl-cert = "{{ .Values.config.api.ssl.cert }}"

@@ -1,4 +1,4 @@
-# Default values for backend-ai-storage-proxy
+# Default values for backend-ai-web-server
 # This is a YAML-formatted file.
 
 # Global settings
@@ -10,7 +10,7 @@ global:
 # Image settings
 image:
   registry: localhost:30002
-  repository: backend-ai/storage-proxy
+  repository: backend.ai-web-server
   tag: "25.06"
   pullPolicy: IfNotPresent
   pullSecrets: []
@@ -26,6 +26,7 @@ serviceAccount:
   create: true
   annotations: {}
   name: ""
+  automount: true
 
 # Pod annotations and labels
 podAnnotations: {}
@@ -46,30 +47,35 @@ securityContext:
 # Service configuration
 service:
   type: ClusterIP
-  port: 6021
-  targetPort: 6021
+  port: 8090
+  targetPort: 8090
   annotations: {}
 
 # Ingress configuration
 ingress:
-  enabled: false
+  enabled: true
   className: ""
-  annotations: {}
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
   hosts:
-    - host: storage-proxy.backend.ai
+    - host: backend.ai
       paths:
         - path: /
           pathType: Prefix
   tls: []
+    # - secretName: backend-ai-tls
+    #   hosts:
+    #     - backend.ai
 
 # Resource limits and requests
 resources:
   limits:
-    cpu: 2000m
-    memory: 4Gi
+    cpu: 1000m
+    memory: 2Gi
   requests:
-    cpu: 500m
-    memory: 1Gi
+    cpu: 250m
+    memory: 512Mi
 
 # Liveness and readiness probes
 livenessProbe:
@@ -104,20 +110,20 @@ persistence:
   enabled: true
   storageClass: ""
   accessMode: ReadWriteOnce
-  size: 10Gi
+  size: 1Gi
   mountPath: /home/backend.ai/logs
   subPath: ""
   annotations: {}
 
 # Configuration
 config:
-  # Storage proxy configuration
+  # Web server configuration
   debug: false
   
-  # API server settings
-  api:
+  # Server settings
+  server:
     host: "0.0.0.0"
-    port: 6021
+    port: 8090
     ssl:
       enabled: false
       cert: ""
@@ -129,62 +135,45 @@ config:
     user: "admin@lablup.com"
     password: "wJalrXUt"
   
-  # Database configuration
-  database:
-    host: "backend-ai-storage-proxy-postgresql"
-    port: 5432
-    name: "backend_ai_storage"
-    user: "postgres"
-    password: ""
-    ssl_mode: "prefer"
+  # Session configuration
+  session:
+    secret_key: "your-secret-key-here"
+    cookie_age: 86400  # 24 hours
   
-  # Redis configuration
-  redis:
-    host: "backend-ai-storage-proxy-redis-master"
-    port: 6379
-    password: ""
-    db: 5
-  
-  # ETCD configuration
-  etcd:
-    endpoints:
-      - "backend-ai-storage-proxy-etcd:2379"
-    namespace: "local"
-    user: ""
-    password: ""
-  
-  # Storage backend configuration
-  storage:
-    # Volume configuration
-    volumes:
-      - name: "local"
-        backend: "vfs"
-        path: "/mnt/backend-ai-storage"
-        fsprefix: "local"
+  # UI configuration
+  ui:
+    brand: "Backend.AI"
+    default_language: "en"
+    menu_blocklist: []
+    menu_inactivelist: []
     
-    # Performance settings
-    max_upload_size: "100g"
-    session_locks: {}
-
-# External storage volumes
-volumes: []
-  # - name: storage-volume
-  #   persistentVolumeClaim:
-  #     claimName: storage-pvc
-
-volumeMounts: []
-  # - name: storage-volume
-  #   mountPath: /mnt/backend-ai-storage
+    # Feature flags
+    features:
+      always_enqueue_compute_session: false
+      hide_agents: false
+      enable_container_commit: false
+      enable_change_signin_mode: false
+      enable_signup: true
+      enable_backendai_stats: true
+      enable_pipeline: false
+  
+  # Wsproxy configuration
+  wsproxy:
+    policy: "session"
+    uri: "local"
+  
+  # API configuration
+  api:
+    domain: "default"
+    endpoint: "https://api.backend.ai"
+    text: "Backend.AI Cloud"
+    ssl_verify: true
 
 # Environment variables
-env: {}
-  # CUSTOM_VAR: "value"
+env:
+  NODE_ENV: "production"
 
 envFrom: []
-  # - configMapRef:
-  #     name: my-config
-  # - secretRef:
-  #     name: my-secret
 
 # Init containers
 initContainers: []
@@ -199,7 +188,6 @@ containers: []
 podDisruptionBudget:
   enabled: false
   minAvailable: 1
-  # maxUnavailable: 1
 
 # Network Policy
 networkPolicy:
@@ -221,35 +209,3 @@ monitoring:
 logging:
   level: "INFO"
   format: "console"
-
-# Dependencies
-postgresql:
-  enabled: true
-  auth:
-    postgresPassword: ""
-    username: "postgres"
-    password: ""
-    database: "backend_ai_storage"
-  primary:
-    persistence:
-      enabled: true
-      size: 8Gi
-
-redis:
-  enabled: true
-  auth:
-    enabled: false
-    password: ""
-  master:
-    persistence:
-      enabled: true
-      size: 8Gi
-
-etcd:
-  enabled: true
-  auth:
-    rbac:
-      create: false
-  persistence:
-    enabled: true
-    size: 8Gi

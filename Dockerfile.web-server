@@ -1,0 +1,36 @@
+# Backend.AI Web Server Dockerfile
+FROM python:3.13-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js for the web frontend
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs
+
+# Copy Backend.AI source code
+COPY . .
+
+# Install Python dependencies using the built-in installation method
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install the local Backend.AI packages
+ENV PYTHONPATH="/app/src:/app:$PYTHONPATH"
+
+# Create user and set permissions
+RUN useradd -m -s /bin/bash backend.ai \
+    && chown -R backend.ai:backend.ai /app
+
+USER backend.ai
+
+# Expose port
+EXPOSE 8090
+
+# Command to run Backend.AI Web Server
+CMD ["python", "-m", "ai.backend.web.server"]

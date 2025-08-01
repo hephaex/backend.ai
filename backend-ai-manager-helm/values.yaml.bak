@@ -11,7 +11,7 @@ global:
 # Backend.AI Manager image
 image:
   registry: localhost:30002
-  repository: backend-ai/manager
+  repository: backend.ai-manager
   tag: "25.06"
   pullPolicy: IfNotPresent
   pullSecrets: []

@@ -9,9 +9,9 @@ global:
 
 # Image settings
 image:
-  registry: ghcr.io
-  repository: lablup/backend.ai-web-server
-  tag: "23.09"
+  registry: localhost:30002
+  repository: backend-ai/web-server
+  tag: "25.06"
   pullPolicy: IfNotPresent
   pullSecrets: []
 
