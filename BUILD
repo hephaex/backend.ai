@@ -40,3 +40,7 @@ python_requirements(
         "types-tabulate": ["tabulate"],
     },
 )
+
+shell_sources(
+    name="root",
+)
