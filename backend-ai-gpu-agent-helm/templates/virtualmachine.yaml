@@ -1,0 +1,230 @@
+{{- $root := . -}}
+{{- range $index := until (int .Values.vm.replicas) }}
+---
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: {{ printf "%s-%03d" $root.Values.vm.namePrefix $index }}
+  namespace: {{ $root.Values.vm.namespace }}
+  labels:
+    {{- include "backend-ai-gpu-agent.labels" $root | nindent 4 }}
+    app.kubernetes.io/component: compute-node
+    node-type: gpu-vm
+    vm-index: {{ $index | quote }}
+  annotations:
+    description: "Backend.AI GPU Agent VM with GPU passthrough"
+    {{- with $root.Values.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  running: true
+  template:
+    metadata:
+      labels:
+        {{- include "backend-ai-gpu-agent.selectorLabels" $root | nindent 8 }}
+        kubevirt.io/vm: {{ printf "%s-%03d" $root.Values.vm.namePrefix $index }}
+        app.kubernetes.io/component: compute-node
+        vm-index: {{ $index | quote }}
+    spec:
+      {{- if $root.Values.priorityClass.enabled }}
+      priorityClassName: {{ $root.Values.priorityClass.name }}
+      {{- end }}
+      nodeSelector:
+        {{- toYaml $root.Values.vm.nodeSelector | nindent 8 }}
+      tolerations:
+        {{- toYaml $root.Values.vm.tolerations | nindent 8 }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: nvidia.com/gpu.count
+                operator: GreaterThan
+                values: ["0"]
+      domain:
+        devices:
+          {{- if $root.Values.vm.resources.gpu.enabled }}
+          # GPU Passthrough Configuration
+          gpus:
+          {{- include "backend-ai-gpu-agent.gpuDevices" $root | nindent 10 }}
+          {{- end }}
+          # Network Interfaces
+          interfaces:
+          - name: default
+            bridge: {}
+          {{- if $root.Values.vm.networking.management.enabled }}
+          - name: management
+            bridge: {}
+          {{- end }}
+          # Storage Devices
+          disks:
+          - name: system-disk
+            disk:
+              bus: virtio
+          - name: scratch-disk
+            disk:
+              bus: virtio
+          - name: agent-config
+            disk:
+              bus: virtio
+          - name: cloudinit
+            disk:
+              bus: virtio
+        # CPU Configuration
+        cpu:
+          cores: {{ $root.Values.vm.resources.cpu.cores }}
+          sockets: {{ $root.Values.vm.resources.cpu.sockets }}
+          threads: {{ $root.Values.vm.resources.cpu.threads }}
+          {{- if $root.Values.vm.resources.cpu.dedicatedCpuPlacement }}
+          dedicatedCpuPlacement: true
+          numa:
+            guestMappingPassthrough: {}
+          {{- end }}
+        # Memory Configuration
+        memory:
+          guest: {{ $root.Values.vm.resources.memory.guest }}
+          {{- if $root.Values.vm.resources.memory.hugepages.enabled }}
+          hugepages:
+            pageSize: {{ $root.Values.vm.resources.memory.hugepages.pageSize }}
+          {{- end }}
+        # Machine Type
+        machine:
+          type: {{ $root.Values.vm.machine.type }}
+        # Firmware Configuration
+        firmware:
+          bootloader:
+            efi:
+              secureBoot: {{ $root.Values.vm.machine.firmware.efi.secureBoot }}
+        # Resource Limits
+        resources:
+          requests:
+            memory: {{ $root.Values.vm.resources.memory.guest }}
+            cpu: {{ $root.Values.vm.resources.cpu.cores }}
+            {{- if $root.Values.vm.resources.gpu.enabled }}
+            nvidia.com/gpu: {{ len $root.Values.vm.resources.gpu.devices }}
+            {{- end }}
+          limits:
+            memory: {{ $root.Values.vm.resources.memory.guest }}
+            cpu: {{ $root.Values.vm.resources.cpu.cores }}
+            {{- if $root.Values.vm.resources.gpu.enabled }}
+            nvidia.com/gpu: {{ len $root.Values.vm.resources.gpu.devices }}
+            {{- end }}
+      # Network Configuration
+      networks:
+      - name: default
+        pod: {}
+      {{- if $root.Values.vm.networking.management.enabled }}
+      - name: management
+        multus:
+          networkName: {{ $root.Values.vm.networking.management.networkName }}
+      {{- end }}
+      # Volume Configuration
+      volumes:
+      - name: system-disk
+        dataVolume:
+          name: {{ printf "%s-%03d-system" $root.Values.vm.namePrefix $index }}
+      - name: scratch-disk
+        dataVolume:
+          name: {{ printf "%s-%03d-scratch" $root.Values.vm.namePrefix $index }}
+      - name: agent-config
+        configMap:
+          name: {{ include "backend-ai-gpu-agent.fullname" $root }}-config
+      - name: cloudinit
+        cloudInitConfigDrive:
+          userData: |
+            #cloud-config
+            hostname: {{ printf "%s-%03d" $root.Values.vm.namePrefix $index }}
+            users:
+              - name: backend-ai
+                groups: sudo,docker
+                sudo: ALL=(ALL) NOPASSWD:ALL
+                shell: /bin/bash
+                ssh_authorized_keys: []
+            packages:
+              - curl
+              - wget
+              - git
+              - python3
+              - python3-pip
+              - nvidia-driver-535
+              - nvidia-utils-535
+            runcmd:
+              - systemctl enable ssh
+              - systemctl start ssh
+              - curl -fsSL https://get.docker.com | sh
+              - usermod -aG docker backend-ai
+              - systemctl enable docker
+              - systemctl start docker
+              - # Install NVIDIA Container Toolkit
+              - distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+              - curl -s -L https://nvidia.github.io/libnvidia-container/gpgkey | apt-key add -
+              - curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list | tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+              - apt-get update
+              - apt-get install -y nvidia-container-toolkit
+              - nvidia-ctk runtime configure --runtime=docker
+              - systemctl restart docker
+              - # Install Backend.AI Agent
+              - pip3 install backend.ai-agent=={{ $root.Chart.AppVersion }}
+              - mkdir -p /etc/backend.ai
+              - mkdir -p {{ $root.Values.agent.container.scratchRoot }}
+              - chmod 755 {{ $root.Values.agent.container.scratchRoot }}
+              - # Copy agent configuration
+              - cp /mnt/agent-config/agent.toml /etc/backend.ai/agent.toml
+              - sed -i "s/\${BACKEND_AI_AGENT_ID}/{{ printf "%s-%03d" $root.Values.agent.id $index }}/g" /etc/backend.ai/agent.toml
+              - # Create systemd service
+              - |
+                cat > /etc/systemd/system/backend-ai-agent.service << 'EOF'
+                [Unit]
+                Description=Backend.AI Agent
+                After=network.target docker.service
+                Requires=docker.service
+                
+                [Service]
+                Type=simple
+                User=backend-ai
+                Group=backend-ai
+                WorkingDirectory=/home/backend-ai
+                Environment=BACKEND_AI_AGENT_CONFIG=/etc/backend.ai/agent.toml
+                Environment=NVIDIA_VISIBLE_DEVICES=all
+                Environment=NVIDIA_DRIVER_CAPABILITIES=compute,utility
+                ExecStart=/usr/local/bin/python3 -m ai.backend.agent.server
+                ExecReload=/bin/kill -USR1 $MAINPID
+                Restart=always
+                RestartSec=10
+                
+                [Install]
+                WantedBy=multi-user.target
+                EOF
+              - systemctl daemon-reload
+              - systemctl enable backend-ai-agent
+              - systemctl start backend-ai-agent
+  # Data Volume Templates
+  dataVolumeTemplates:
+  - metadata:
+      name: {{ printf "%s-%03d-system" $root.Values.vm.namePrefix $index }}
+      namespace: {{ $root.Values.vm.namespace }}
+    spec:
+      pvc:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: {{ $root.Values.vm.storage.systemDisk.size }}
+        storageClassName: {{ $root.Values.vm.storage.systemDisk.storageClass }}
+      source:
+        registry:
+          url: "docker://{{ $root.Values.vm.storage.systemDisk.image }}"
+  - metadata:
+      name: {{ printf "%s-%03d-scratch" $root.Values.vm.namePrefix $index }}
+      namespace: {{ $root.Values.vm.namespace }}
+    spec:
+      pvc:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: {{ $root.Values.vm.storage.scratchDisk.size }}
+        storageClassName: {{ $root.Values.vm.storage.scratchDisk.storageClass }}
+      source:
+        blank: {}
+{{- end }}

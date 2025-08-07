@@ -1,0 +1,12 @@
+{{- if .Values.priorityClass.enabled }}
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: {{ .Values.priorityClass.name }}
+  labels:
+    {{- include "backend-ai-gpu-agent.labels" . | nindent 4 }}
+    app.kubernetes.io/component: priority-class
+value: {{ .Values.priorityClass.value }}
+globalDefault: {{ .Values.priorityClass.globalDefault }}
+description: {{ .Values.priorityClass.description | quote }}
+{{- end }}

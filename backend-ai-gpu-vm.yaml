@@ -1,0 +1,353 @@
+# Backend.AI Agent GPU Virtual Machine Configuration
+# This creates a KubeVirt VM with GPU passthrough for Backend.AI Agent
+
+---
+# Backend.AI Agent GPU VM Template
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: backend-ai-gpu-agent-001
+  namespace: backend-ai-gpu
+  labels:
+    app: backend-ai-agent
+    component: compute-node
+    node-type: gpu-vm
+    gpu-type: "a10"
+  annotations:
+    description: "Backend.AI GPU Agent VM with NVIDIA A10 passthrough"
+spec:
+  running: true
+  template:
+    metadata:
+      labels:
+        kubevirt.io/vm: backend-ai-gpu-agent-001
+        app: backend-ai-agent
+        component: compute-node
+    spec:
+      priorityClassName: gpu-vm-priority
+      nodeSelector:
+        nvidia.com/gpu.workload.config: vm-passthrough
+        gpu-type: "a10"
+        node-role.kubernetes.io/worker: ""
+      tolerations:
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
+      - key: kubevirt.io/gpu
+        operator: Exists
+        effect: NoSchedule
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: nvidia.com/gpu.count
+                operator: GreaterThan
+                values: ["0"]
+      domain:
+        devices:
+          # GPU Passthrough Configuration
+          gpus:
+          - deviceName: nvidia.com/GA102GL_A10
+            name: gpu0
+          # Network Interfaces
+          interfaces:
+          - name: default
+            bridge: {}
+          - name: management
+            bridge: {}
+          # Storage Devices
+          disks:
+          - name: system-disk
+            disk:
+              bus: virtio
+          - name: scratch-disk
+            disk:
+              bus: virtio
+          - name: agent-config
+            disk:
+              bus: virtio
+          - name: cloudinit
+            disk:
+              bus: virtio
+        # CPU Configuration
+        cpu:
+          cores: 16
+          sockets: 1
+          threads: 1
+          dedicatedCpuPlacement: true
+          numa:
+            guestMappingPassthrough: {}
+        # Memory Configuration
+        memory:
+          guest: 64Gi
+          hugepages:
+            pageSize: 2Mi
+        # Machine Type
+        machine:
+          type: q35
+        # Firmware Configuration
+        firmware:
+          bootloader:
+            efi:
+              secureBoot: false
+        # Resource Limits
+        resources:
+          requests:
+            memory: 64Gi
+            cpu: 16
+            nvidia.com/gpu: 1
+          limits:
+            memory: 64Gi
+            cpu: 16
+            nvidia.com/gpu: 1
+      # Network Configuration
+      networks:
+      - name: default
+        pod: {}
+      - name: management
+        multus:
+          networkName: backend-ai-gpu-management-net
+      # Volume Configuration
+      volumes:
+      - name: system-disk
+        dataVolume:
+          name: backend-ai-gpu-agent-001-system
+      - name: scratch-disk
+        dataVolume:
+          name: backend-ai-gpu-agent-001-scratch
+      - name: agent-config
+        configMap:
+          name: backend-ai-agent-gpu-config
+      - name: cloudinit
+        cloudInitConfigDrive:
+          userData: |
+            #cloud-config
+            hostname: backend-ai-gpu-agent-001
+            users:
+              - name: backend-ai
+                groups: sudo,docker
+                sudo: ALL=(ALL) NOPASSWD:ALL
+                shell: /bin/bash
+                ssh_authorized_keys:
+                  - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC7... # Add your SSH public key
+            packages:
+              - curl
+              - wget
+              - git
+              - python3
+              - python3-pip
+              - nvidia-driver-535
+              - nvidia-utils-535
+            runcmd:
+              - systemctl enable ssh
+              - systemctl start ssh
+              - curl -fsSL https://get.docker.com | sh
+              - usermod -aG docker backend-ai
+              - systemctl enable docker
+              - systemctl start docker
+              - # Install NVIDIA Container Toolkit
+              - distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+              - curl -s -L https://nvidia.github.io/libnvidia-container/gpgkey | apt-key add -
+              - curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list | tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+              - apt-get update
+              - apt-get install -y nvidia-container-toolkit
+              - nvidia-ctk runtime configure --runtime=docker
+              - systemctl restart docker
+              - # Install Backend.AI Agent
+              - pip3 install backend.ai-agent==25.06
+              - mkdir -p /etc/backend.ai
+              - mkdir -p /var/cache/scratches
+              - chmod 755 /var/cache/scratches
+              - # Copy agent configuration
+              - cp /mnt/agent-config/agent.toml /etc/backend.ai/agent.toml
+              - sed -i "s/\${BACKEND_AI_AGENT_ID}/gpu-agent-001/g" /etc/backend.ai/agent.toml
+              - # Create systemd service
+              - |
+                cat > /etc/systemd/system/backend-ai-agent.service << 'EOF'
+                [Unit]
+                Description=Backend.AI Agent
+                After=network.target docker.service
+                Requires=docker.service
+                
+                [Service]
+                Type=simple
+                User=backend-ai
+                Group=backend-ai
+                WorkingDirectory=/home/backend-ai
+                Environment=BACKEND_AI_AGENT_CONFIG=/etc/backend.ai/agent.toml
+                Environment=NVIDIA_VISIBLE_DEVICES=all
+                Environment=NVIDIA_DRIVER_CAPABILITIES=compute,utility
+                ExecStart=/usr/local/bin/python3 -m ai.backend.agent.server
+                ExecReload=/bin/kill -USR1 $MAINPID
+                Restart=always
+                RestartSec=10
+                
+                [Install]
+                WantedBy=multi-user.target
+                EOF
+              - systemctl daemon-reload
+              - systemctl enable backend-ai-agent
+              - systemctl start backend-ai-agent
+  # Data Volume Templates
+  dataVolumeTemplates:
+  - metadata:
+      name: backend-ai-gpu-agent-001-system
+      namespace: backend-ai-gpu
+    spec:
+      pvc:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 100Gi
+        storageClassName: gpu-vm-fast-ssd
+      source:
+        registry:
+          url: "docker://harbor.backend-ai.local:30002/backend-ai/ubuntu-gpu:22.04"
+  - metadata:
+      name: backend-ai-gpu-agent-001-scratch
+      namespace: backend-ai-gpu  
+    spec:
+      pvc:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Ti
+        storageClassName: gpu-vm-fast-ssd
+      source:
+        blank: {}
+
+---
+# Backend.AI Agent GPU Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-ai-agent-gpu-config
+  namespace: backend-ai-gpu
+data:
+  agent.toml: |
+    [etcd]
+    namespace = "backend.ai"
+    endpoints = ["http://backend-ai-etcd.backend-ai.svc.cluster.local:2379"]
+    user = ""
+    password = ""
+    
+    [agent]
+    backend = "docker"
+    rpc-listen-addr = "tcp://0.0.0.0:6011"
+    id = "gpu-agent-001"
+    region = "default"
+    scaling-group = "gpu-nodes"
+    pid-file = "/tmp/backend.ai-agent.pid"
+    event-loop = "uvloop"
+    
+    [container]
+    bind-host = "0.0.0.0"
+    scratch-type = "hostdir"
+    scratch-root = "/var/cache/scratches"
+    stats-type = "docker"
+    sandbox-type = "docker"
+    
+    [docker-registry."harbor.backend-ai.local:30002"]
+    url = "http://harbor.backend-ai.local:30002"
+    username = "admin"
+    password = "Harbor12345"
+    ssl-verify = false
+    
+    [logging]
+    level = "INFO"
+    drivers = ["console", "logstash"]
+    
+    [debug]
+    enabled = false
+    asyncio = false
+    
+    [resource]
+    cuda.enabled = true
+    cuda.version = "12.2"
+    opencl.enabled = false
+    
+    # GPU Resource Configuration
+    [resource.cuda]
+    enabled = true
+    version = "12.2"
+    
+    [resource.allocation]
+    # Allow fractional GPU allocation
+    cuda = "fractional"
+    
+    [watcher]
+    service-addr = "tcp://0.0.0.0:6009"
+
+---
+# Service for Backend.AI GPU Agent VM
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-ai-gpu-agent-001-service
+  namespace: backend-ai-gpu
+  labels:
+    app: backend-ai-agent
+    component: compute-node
+spec:
+  selector:
+    kubevirt.io/vm: backend-ai-gpu-agent-001
+  ports:
+  - name: rpc
+    port: 6011
+    targetPort: 6011
+    protocol: TCP
+  - name: watcher
+    port: 6009
+    targetPort: 6009
+    protocol: TCP
+  - name: container-ports
+    port: 30000
+    targetPort: 30000
+    protocol: TCP
+  type: ClusterIP
+
+---
+# Headless Service for Agent Discovery
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-ai-gpu-agents
+  namespace: backend-ai-gpu
+  labels:
+    app: backend-ai-agent
+    component: compute-node
+spec:
+  clusterIP: None
+  selector:
+    app: backend-ai-agent
+    component: compute-node
+  ports:
+  - name: rpc
+    port: 6011
+    targetPort: 6011
+  - name: watcher  
+    port: 6009
+    targetPort: 6009
+
+---
+# ServiceMonitor for Prometheus (optional)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: backend-ai-gpu-agent-metrics
+  namespace: backend-ai-gpu
+  labels:
+    app: backend-ai-agent
+    component: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: backend-ai-agent
+      component: compute-node
+  endpoints:
+  - port: watcher
+    interval: 30s
+    path: /metrics

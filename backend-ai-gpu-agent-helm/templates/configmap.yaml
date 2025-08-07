@@ -1,0 +1,147 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "backend-ai-gpu-agent.fullname" . }}-config
+  namespace: {{ .Values.vm.namespace }}
+  labels:
+    {{- include "backend-ai-gpu-agent.labels" . | nindent 4 }}
+    app.kubernetes.io/component: config
+data:
+  agent.toml: |
+    [etcd]
+    namespace = "backend.ai"
+    endpoints = [{{ include "backend-ai-gpu-agent.etcdEndpoints" . }}]
+    user = ""
+    password = ""
+    
+    [agent]
+    backend = {{ .Values.agent.backend | quote }}
+    rpc-listen-addr = "tcp://0.0.0.0:{{ .Values.service.ports.rpc }}"
+    id = "${BACKEND_AI_AGENT_ID}"
+    region = {{ .Values.agent.region | quote }}
+    scaling-group = {{ .Values.agent.scalingGroup | quote }}
+    pid-file = "/tmp/backend.ai-agent.pid"
+    event-loop = {{ .Values.agent.eventLoop | quote }}
+    
+    [container]
+    bind-host = {{ .Values.agent.container.bindHost | quote }}
+    scratch-type = {{ .Values.agent.container.scratchType | quote }}
+    scratch-root = {{ .Values.agent.container.scratchRoot | quote }}
+    stats-type = {{ .Values.agent.container.statsType | quote }}
+    sandbox-type = {{ .Values.agent.container.sandboxType | quote }}
+    
+    [docker-registry."{{ .Values.global.registry.url }}"]
+    url = "http://{{ .Values.global.registry.url }}"
+    username = {{ .Values.global.registry.username | quote }}
+    password = {{ .Values.global.registry.password | quote }}
+    ssl-verify = {{ .Values.global.registry.sslVerify }}
+    
+    [logging]
+    level = {{ .Values.agent.logging.level | quote }}
+    drivers = {{ toJson .Values.agent.logging.drivers }}
+    
+    [debug]
+    enabled = {{ .Values.agent.debug.enabled }}
+    asyncio = {{ .Values.agent.debug.asyncio }}
+    
+    {{- if .Values.agent.resource.cuda.enabled }}
+    [resource]
+    cuda.enabled = {{ .Values.agent.resource.cuda.enabled }}
+    cuda.version = {{ .Values.agent.resource.cuda.version | quote }}
+    opencl.enabled = {{ .Values.agent.resource.opencl.enabled }}
+    
+    [resource.cuda]
+    enabled = {{ .Values.agent.resource.cuda.enabled }}
+    version = {{ .Values.agent.resource.cuda.version | quote }}
+    
+    [resource.allocation]
+    cuda = {{ .Values.agent.resource.cuda.allocation | quote }}
+    {{- end }}
+    
+    [watcher]
+    service-addr = "tcp://0.0.0.0:{{ .Values.service.ports.watcher }}"
+    
+  init-script.sh: |
+    #!/bin/bash
+    set -e
+    
+    echo "Starting Backend.AI Agent initialization..."
+    
+    # Setup GPU environment
+    echo "Setting up GPU environment..."
+    
+    # Install NVIDIA drivers if not present
+    if ! nvidia-smi > /dev/null 2>&1; then
+        echo "Installing NVIDIA drivers..."
+        apt-get update
+        apt-get install -y nvidia-driver-535 nvidia-utils-535
+    fi
+    
+    # Install Docker if not present  
+    if ! docker --version > /dev/null 2>&1; then
+        echo "Installing Docker..."
+        curl -fsSL https://get.docker.com | sh
+        systemctl enable docker
+        systemctl start docker
+    fi
+    
+    # Install NVIDIA Container Toolkit
+    if ! nvidia-ctk --version > /dev/null 2>&1; then
+        echo "Installing NVIDIA Container Toolkit..."
+        distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+        curl -s -L https://nvidia.github.io/libnvidia-container/gpgkey | apt-key add -
+        curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list | \
+            tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+        apt-get update
+        apt-get install -y nvidia-container-toolkit
+        
+        # Configure Docker daemon
+        nvidia-ctk runtime configure --runtime=docker
+        systemctl restart docker
+    fi
+    
+    # Test GPU access
+    echo "Testing GPU access..."
+    nvidia-smi
+    docker run --rm --gpus all nvidia/cuda:{{ .Values.agent.resource.cuda.version }}-base-ubuntu22.04 nvidia-smi
+    
+    # Install Backend.AI Agent
+    echo "Installing Backend.AI Agent..."
+    pip3 install backend.ai-agent=={{ .Chart.AppVersion }}
+    
+    # Setup directories
+    mkdir -p /etc/backend.ai
+    mkdir -p {{ .Values.agent.container.scratchRoot }}
+    chmod 755 {{ .Values.agent.container.scratchRoot }}
+    
+    # Copy agent configuration
+    cp /mnt/agent-config/agent.toml /etc/backend.ai/agent.toml
+    
+    # Create systemd service
+    cat > /etc/systemd/system/backend-ai-agent.service << 'EOF'
+    [Unit]
+    Description=Backend.AI Agent
+    After=network.target docker.service
+    Requires=docker.service
+    
+    [Service]
+    Type=simple
+    User=backend-ai
+    Group=backend-ai
+    WorkingDirectory=/home/backend-ai
+    Environment=BACKEND_AI_AGENT_CONFIG=/etc/backend.ai/agent.toml
+    Environment=NVIDIA_VISIBLE_DEVICES=all
+    Environment=NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    ExecStart=/usr/local/bin/python3 -m ai.backend.agent.server
+    ExecReload=/bin/kill -USR1 $MAINPID
+    Restart=always
+    RestartSec=10
+    
+    [Install]
+    WantedBy=multi-user.target
+    EOF
+    
+    systemctl daemon-reload
+    systemctl enable backend-ai-agent
+    
+    echo "Backend.AI Agent initialization completed successfully!"

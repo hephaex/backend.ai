@@ -1,0 +1,20 @@
+{{- if and .Values.monitoring.enabled .Values.monitoring.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "backend-ai-gpu-agent.fullname" . }}-metrics
+  namespace: {{ .Values.vm.namespace }}
+  labels:
+    {{- include "backend-ai-gpu-agent.labels" . | nindent 4 }}
+    app.kubernetes.io/component: monitoring
+spec:
+  selector:
+    matchLabels:
+      {{- include "backend-ai-gpu-agent.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: compute-node
+  endpoints:
+  - port: watcher
+    interval: {{ .Values.monitoring.serviceMonitor.interval }}
+    path: {{ .Values.monitoring.serviceMonitor.path }}
+    scheme: http
+{{- end }}

@@ -1,0 +1,61 @@
+{{- $root := . -}}
+{{- range $index := until (int .Values.vm.replicas) }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ printf "%s-%03d-service" $root.Values.vm.namePrefix $index }}
+  namespace: {{ $root.Values.vm.namespace }}
+  labels:
+    {{- include "backend-ai-gpu-agent.labels" $root | nindent 4 }}
+    app.kubernetes.io/component: compute-node
+    vm-index: {{ $index | quote }}
+  {{- with $root.Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ $root.Values.service.type }}
+  selector:
+    {{- include "backend-ai-gpu-agent.selectorLabels" $root | nindent 4 }}
+    kubevirt.io/vm: {{ printf "%s-%03d" $root.Values.vm.namePrefix $index }}
+  ports:
+  - name: rpc
+    port: {{ $root.Values.service.ports.rpc }}
+    targetPort: {{ $root.Values.service.ports.rpc }}
+    protocol: TCP
+  - name: watcher
+    port: {{ $root.Values.service.ports.watcher }}
+    targetPort: {{ $root.Values.service.ports.watcher }}
+    protocol: TCP
+  - name: container-ports
+    port: {{ $root.Values.service.ports.container }}
+    targetPort: {{ $root.Values.service.ports.container }}
+    protocol: TCP
+{{- end }}
+
+{{- if .Values.service.headless.enabled }}
+---
+# Headless Service for Agent Discovery
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "backend-ai-gpu-agent.fullname" . }}-headless
+  namespace: {{ .Values.vm.namespace }}
+  labels:
+    {{- include "backend-ai-gpu-agent.labels" . | nindent 4 }}
+    app.kubernetes.io/component: compute-node
+    service-type: headless
+spec:
+  clusterIP: None
+  selector:
+    {{- include "backend-ai-gpu-agent.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: compute-node
+  ports:
+  - name: rpc
+    port: {{ .Values.service.ports.rpc }}
+    targetPort: {{ .Values.service.ports.rpc }}
+  - name: watcher  
+    port: {{ .Values.service.ports.watcher }}
+    targetPort: {{ .Values.service.ports.watcher }}
+{{- end }}

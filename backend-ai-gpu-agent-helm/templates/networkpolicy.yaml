@@ -1,0 +1,25 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "backend-ai-gpu-agent.fullname" . }}-network-policy
+  namespace: {{ .Values.vm.namespace }}
+  labels:
+    {{- include "backend-ai-gpu-agent.labels" . | nindent 4 }}
+    app.kubernetes.io/component: network-policy
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "backend-ai-gpu-agent.selectorLabels" . | nindent 6 }}
+  policyTypes:
+  - Ingress
+  - Egress
+  {{- if .Values.networkPolicy.ingress }}
+  ingress:
+  {{- toYaml .Values.networkPolicy.ingress | nindent 2 }}
+  {{- end }}
+  {{- if .Values.networkPolicy.egress }}
+  egress:
+  {{- toYaml .Values.networkPolicy.egress | nindent 2 }}
+  {{- end }}
+{{- end }}

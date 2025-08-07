@@ -1,0 +1,204 @@
+# Default values for backend-ai-gpu-agent Helm chart
+
+# Global configuration
+global:
+  # Backend.AI Manager service connection
+  manager:
+    namespace: backend-ai
+    etcdEndpoint: "http://backend-ai-etcd.backend-ai.svc.cluster.local:2379"
+  
+  # Harbor registry configuration
+  registry:
+    url: "harbor.backend-ai.local:30002"
+    username: "admin"
+    password: "Harbor12345"
+    project: "backend-ai"
+    sslVerify: false
+
+# KubeVirt configuration
+kubevirt:
+  enabled: true
+
+# VM configuration
+vm:
+  # VM naming and labeling
+  namePrefix: "backend-ai-gpu-agent"
+  namespace: "backend-ai-gpu"
+  
+  # VM count and scaling
+  replicas: 1
+  
+  # VM resource configuration
+  resources:
+    cpu:
+      cores: 16
+      sockets: 1
+      threads: 1
+      dedicatedCpuPlacement: true
+    memory:
+      guest: 64Gi
+      hugepages:
+        enabled: true
+        pageSize: 2Mi
+    gpu:
+      # GPU device configuration
+      enabled: true
+      devices:
+        - deviceName: "nvidia.com/GA102GL_A10"
+          name: "gpu0"
+    
+  # Node selection and scheduling
+  nodeSelector:
+    nvidia.com/gpu.workload.config: "vm-passthrough"
+    node-role.kubernetes.io/worker: ""
+  
+  tolerations:
+    - key: nvidia.com/gpu
+      operator: Exists
+      effect: NoSchedule
+    - key: kubevirt.io/gpu
+      operator: Exists
+      effect: NoSchedule
+
+  # VM machine configuration
+  machine:
+    type: "q35"
+    firmware:
+      efi:
+        secureBoot: false
+
+  # Storage configuration
+  storage:
+    systemDisk:
+      size: "100Gi"
+      storageClass: "gpu-vm-fast-ssd"
+      image: "harbor.backend-ai.local:30002/backend-ai/ubuntu-gpu:22.04"
+    scratchDisk:
+      size: "1Ti"
+      storageClass: "gpu-vm-fast-ssd"
+
+  # Networking configuration
+  networking:
+    # Default pod network
+    default:
+      enabled: true
+    # Management network
+    management:
+      enabled: true
+      networkName: "backend-ai-gpu-management-net"
+
+# Backend.AI Agent configuration
+agent:
+  # Agent identification
+  id: "gpu-agent-001"
+  region: "default"
+  scalingGroup: "gpu-nodes"
+  
+  # Agent backend configuration
+  backend: "docker"
+  eventLoop: "uvloop"
+  
+  # Container configuration
+  container:
+    bindHost: "0.0.0.0"
+    scratchType: "hostdir"
+    scratchRoot: "/var/cache/scratches"
+    statsType: "docker"
+    sandboxType: "docker"
+  
+  # Resource configuration
+  resource:
+    cuda:
+      enabled: true
+      version: "12.2"
+      allocation: "fractional"
+    opencl:
+      enabled: false
+  
+  # Logging configuration
+  logging:
+    level: "INFO"
+    drivers: ["console", "logstash"]
+  
+  # Debug configuration
+  debug:
+    enabled: false
+    asyncio: false
+
+# Service configuration
+service:
+  # Service type and ports
+  type: "ClusterIP"
+  ports:
+    rpc: 6011
+    watcher: 6009
+    container: 30000
+  
+  # Service annotations
+  annotations: {}
+  
+  # Headless service for agent discovery
+  headless:
+    enabled: true
+
+# Priority class configuration
+priorityClass:
+  enabled: true
+  name: "gpu-vm-priority"
+  value: 1000
+  globalDefault: false
+  description: "Priority class for GPU VMs running Backend.AI Agents"
+
+# Cloud-init configuration
+cloudInit:
+  userData: |
+    #cloud-config
+    hostname: {{ include "backend-ai-gpu-agent.fullname" . }}
+    users:
+      - name: backend-ai
+        groups: sudo,docker
+        sudo: ALL=(ALL) NOPASSWD:ALL
+        shell: /bin/bash
+        ssh_authorized_keys: []
+    packages:
+      - curl
+      - wget
+      - git
+      - python3
+      - python3-pip
+      - nvidia-driver-535
+      - nvidia-utils-535
+    runcmd:
+      - systemctl enable ssh
+      - systemctl start ssh
+      - curl -fsSL https://get.docker.com | sh
+      - usermod -aG docker backend-ai
+      - systemctl enable docker
+      - systemctl start docker
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: "30s"
+    path: "/metrics"
+
+# Network policies
+networkPolicy:
+  enabled: false
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: backend-ai
+  egress:
+    - to: []
+
+# Additional labels and annotations
+labels: {}
+annotations: {}
+
+# Image pull secrets
+imagePullSecrets:
+  - name: "harbor-registry-secret"

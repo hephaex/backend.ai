@@ -1,0 +1,26 @@
+apiVersion: v2
+name: backend-ai-gpu-agent
+description: A Helm chart for Backend.AI GPU Agent VMs using KubeVirt
+type: application
+version: 1.0.0
+appVersion: "25.06"
+home: https://backend.ai
+sources:
+  - https://github.com/lablup/backend.ai
+maintainers:
+  - name: Backend.AI Team
+    email: dev@lablup.com
+keywords:
+  - backend.ai
+  - ai
+  - gpu
+  - kubevirt
+  - virtualization
+dependencies:
+  - name: kubevirt
+    version: "*"
+    repository: "https://kubevirt.io/charts"
+    condition: kubevirt.enabled
+annotations:
+  category: AI/ML
+  licenses: LGPLv3
