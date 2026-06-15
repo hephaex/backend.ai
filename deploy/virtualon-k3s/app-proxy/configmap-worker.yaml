@@ -5,7 +5,7 @@ metadata:
   namespace: backend-ai
 data:
   proxy-worker.toml: |
-    # Backend.AI AppProxy Worker — VirtualOn k3s (26.4.4rc9)
+    # Backend.AI AppProxy Worker — VirtualOn k3s (26.4.3)
 
     [redis]
     addr = { host = "redis", port = 6379 }
@@ -25,6 +25,14 @@ data:
     api_bind_addr = { host = "0.0.0.0", port = 10201 }
     announce_addr = { host = "backend-ai-appproxy-worker", port = 10201 }
     coordinator_endpoint = "http://backend-ai-appproxy-coordinator:10200"
+    protocol = "http"
+    accepted_traffics = ["interactive", "inference"]
+    authority = "worker-vm110"
+    frontend_mode = "port"
+
+    [proxy_worker.port_proxy]
+    bind_host = "0.0.0.0"
+    bind_port_range = [10205, 10300]
 
     [service_discovery]
     type = "redis"
@@ -37,6 +45,10 @@ data:
     jwt_secret = "${BACKEND_AI_JWT_SECRET}"
     api_secret = "${BACKEND_AI_API_SECRET}"
 
+    [permit_hash]
+    secret = "${PERMIT_HASH_SECRET}"
+    digest_mod = "sha256"
+
     [logging]
     version = 1
     level = "INFO"
@@ -44,7 +56,10 @@ data:
     handlers = {}
     loggers = {}
     drivers = ["console"]
-    pkg-ns = "{ \"\" = \"WARNING\", \"ai.backend\" = \"INFO\" }"
+
+    [logging.pkg-ns]
+    "" = "WARNING"
+    "ai.backend" = "INFO"
 
     [logging.console]
     format = "verbose"
