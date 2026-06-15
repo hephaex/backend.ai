@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-ai-webui
+  namespace: backend-ai
+  labels:
+    app: backend-ai-webui
+    component: web-server
+    version: "v26.4.8-rc.12"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend-ai-webui
+  template:
+    metadata:
+      labels:
+        app: backend-ai-webui
+        component: web-server
+    spec:
+      containers:
+      - name: webui
+        # local image built on VM110 — see web-server/Dockerfile.webui
+        # 1. Download dist from https://github.com/lablup/backend.ai-webui/releases/tag/v26.4.8-rc.12
+        # 2. Extract dist/ into deploy/virtualon-k3s/web-server/dist/
+        # 3. build: docker build -t bai-webui:v26.4.8-rc.12 -f web-server/Dockerfile.webui web-server/
+        # 4. import: docker save bai-webui:v26.4.8-rc.12 | sudo ctr -n k8s.io images import -
+        image: bai-webui:v26.4.8-rc.12
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 80
+          name: http
+        volumeMounts:
+        - name: webui-config
+          mountPath: /usr/share/nginx/html/config.toml
+          subPath: config.toml
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+      volumes:
+      - name: webui-config
+        configMap:
+          name: backend-ai-webui-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-ai-webui
+  namespace: backend-ai
+  labels:
+    app: backend-ai-webui
+spec:
+  type: NodePort
+  selector:
+    app: backend-ai-webui
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+    nodePort: 30080

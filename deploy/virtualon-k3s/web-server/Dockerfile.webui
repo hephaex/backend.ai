@@ -1,0 +1,13 @@
+FROM nginx:1.27-alpine
+
+# backend.ai-webui v26.4.8-rc.12 — VM110 k3s용 로컬 빌드
+# 1. GitHub Releases에서 dist 아카이브 다운로드:
+#    https://github.com/lablup/backend.ai-webui/releases/tag/v26.4.8-rc.12
+# 2. extract_and_place.sh 또는 수동으로 dist/ → /usr/share/nginx/html/
+# 3. build: docker build -t bai-webui:v26.4.8-rc.12 -f web-server/Dockerfile.webui web-server/
+# 4. import: docker save bai-webui:v26.4.8-rc.12 | sudo ctr -n k8s.io images import -
+
+COPY dist/ /usr/share/nginx/html/
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80

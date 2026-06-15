@@ -28,7 +28,7 @@ metadata:
   labels:
     app: backend-ai-appproxy-worker
     component: app-proxy
-    version: "26.4.3"
+    version: "26.4.4rc9"
 spec:
   replicas: 1
   selector:
@@ -54,10 +54,10 @@ spec:
         - "until curl -sf http://backend-ai-appproxy-coordinator:10200/health; do sleep 5; done"
       containers:
       - name: worker
-        # local image built on VM110: pip install backend.ai-appproxy-worker==26.4.3
-        # build: docker build -t bai-appproxy-worker:26.4.3 -f Dockerfile.worker .
-        # import: docker save bai-appproxy-worker:26.4.3 | ctr -n k8s.io images import -
-        image: bai-appproxy-worker:26.4.3
+        # local image built on VM110 — see app-proxy/Dockerfile.worker
+        # build: docker build -t bai-appproxy-worker:26.4.4rc9 -f app-proxy/Dockerfile.worker app-proxy/
+        # import: docker save bai-appproxy-worker:26.4.4rc9 | sudo ctr -n k8s.io images import -
+        image: bai-appproxy-worker:26.4.4rc9
         imagePullPolicy: Never
         command: ["python3", "/entrypoint/entrypoint.sh"]
         ports:

@@ -1,0 +1,18 @@
+FROM python:3.13-slim
+
+# backend.ai-appproxy-worker 26.4.4rc9 — VM110 k3s용 로컬 빌드
+# build: docker build -t bai-appproxy-worker:26.4.4rc9 -f Dockerfile.worker .
+# import: docker save bai-appproxy-worker:26.4.4rc9 | \
+#           sudo ctr -n k8s.io images import -
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        gcc python3-dev curl \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir \
+    "backend.ai-appproxy-worker==26.4.4rc9"
+
+RUN useradd -m -u 1000 bai
+USER 1000
+
+EXPOSE 10201
