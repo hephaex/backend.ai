@@ -1,0 +1,59 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: appproxy-worker-config
+  namespace: backend-ai
+data:
+  proxy-worker.toml: |
+    # Backend.AI AppProxy Worker — VirtualOn k3s (26.4.4rc9)
+
+    [redis]
+    addr = { host = "redis", port = 6379 }
+
+    [redis.redis_helper_config]
+    socket_timeout = 10.0
+    socket_connect_timeout = 5.0
+    reconnect_poll_timeout = 1.0
+
+    [proxy_worker]
+    ipc_base_path = "/tmp/backend.ai/ipc"
+    event_loop = "asyncio"
+    pid_file = "/dev/null"
+    id = "i-worker-vm110"
+    user = 1000
+    group = 1000
+    api_bind_addr = { host = "0.0.0.0", port = 10201 }
+    announce_addr = { host = "backend-ai-appproxy-worker", port = 10201 }
+    coordinator_endpoint = "http://backend-ai-appproxy-coordinator:10200"
+
+    [service_discovery]
+    type = "redis"
+
+    [etcd]
+    namespace = "backend"
+    addr = { host = "etcd", port = 2379 }
+
+    [secrets]
+    jwt_secret = "${BACKEND_AI_JWT_SECRET}"
+    api_secret = "${BACKEND_AI_API_SECRET}"
+
+    [logging]
+    version = 1
+    level = "INFO"
+    disable-existing-loggers = false
+    handlers = {}
+    loggers = {}
+    drivers = ["console"]
+    pkg-ns = "{ \"\" = \"WARNING\", \"ai.backend\" = \"INFO\" }"
+
+    [logging.console]
+    format = "verbose"
+
+    [debug]
+    enabled = false
+    asyncio = false
+    log_events = false
+    log_stats = false
+
+    [otel]
+    enabled = false

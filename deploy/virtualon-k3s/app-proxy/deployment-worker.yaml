@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-ai-appproxy-worker
+  namespace: backend-ai
+  labels:
+    app: backend-ai-appproxy-worker
+    component: app-proxy
+    version: "26.4.4rc9"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend-ai-appproxy-worker
+  template:
+    metadata:
+      labels:
+        app: backend-ai-appproxy-worker
+        component: app-proxy
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      initContainers:
+      - name: wait-coordinator
+        image: curlimages/curl:latest
+        command:
+        - "sh"
+        - "-c"
+        - "until curl -sf http://backend-ai-appproxy-coordinator:10200/health; do sleep 5; done"
+      containers:
+      - name: worker
+        image: lablup/backend.ai-appproxy-worker:26.4.4rc9
+        command:
+        - "python"
+        - "-m"
+        - "ai.backend.appproxy.worker.server"
+        - "-f"
+        - "/etc/backend.ai/proxy-worker.toml"
+        ports:
+        - containerPort: 10201
+          name: worker
+        env:
+        - name: BACKEND_AI_JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: backend-ai-appproxy-secret
+              key: jwt-secret
+        - name: BACKEND_AI_API_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: backend-ai-appproxy-secret
+              key: api-secret
+        volumeMounts:
+        - name: config
+          mountPath: /etc/backend.ai/proxy-worker.toml
+          subPath: proxy-worker.toml
+        - name: ipc
+          mountPath: /tmp/backend.ai/ipc
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+      volumes:
+      - name: config
+        configMap:
+          name: appproxy-worker-config
+      - name: ipc
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-ai-appproxy-worker
+  namespace: backend-ai
+  labels:
+    app: backend-ai-appproxy-worker
+spec:
+  type: NodePort
+  selector:
+    app: backend-ai-appproxy-worker
+  ports:
+  - name: worker
+    port: 10201
+    targetPort: 10201
+    nodePort: 30201
