@@ -1,0 +1,80 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: appproxy-coordinator-config
+  namespace: backend-ai
+data:
+  proxy-coordinator.toml: |
+    # Backend.AI AppProxy Coordinator — VirtualOn k3s (26.4.4rc9)
+
+    [db]
+    type = "postgresql"
+    addr = { host = "postgres", port = 5432 }
+    name = "appproxy"
+    user = "appproxy"
+    password = "${APPPROXY_DB_PASSWORD}"
+    pool_size = 8
+    max_overflow = 32
+
+    [redis]
+    addr = { host = "redis", port = 6379 }
+
+    [redis.redis_helper_config]
+    socket_timeout = 10.0
+    socket_connect_timeout = 5.0
+    reconnect_poll_timeout = 1.0
+
+    [proxy_coordinator]
+    ipc_base_path = "/tmp/backend.ai/ipc"
+    event_loop = "asyncio"
+    pid_file = "/dev/null"
+    id = "i-coordinator-vm110"
+    user = 1000
+    group = 1000
+    bind_addr = { host = "0.0.0.0", port = 10200 }
+    announce_addr = { host = "backend-ai-appproxy-coordinator", port = 10200 }
+    distributed_lock = "pg_advisory"
+    tls_listen = false
+    tls_advertised = false
+    enable_traefik = false
+    worker_heartbeat_timeout = 60.0
+    unused_circuit_collection_timeout = 3600
+    health_check_timer_interval = 30.0
+    metric_access_allowed_hosts = "0.0.0.0/0"
+    allow_unauthorized_configure_request = false
+
+    [service_discovery]
+    type = "redis"
+
+    [etcd]
+    namespace = "backend"
+    addr = { host = "etcd", port = 2379 }
+
+    [secrets]
+    jwt_secret = "${BACKEND_AI_JWT_SECRET}"
+    api_secret = "${BACKEND_AI_API_SECRET}"
+
+    [permit_hash]
+    secret = "${PERMIT_HASH_SECRET}"
+    digest_mod = "SHA256"
+
+    [logging]
+    version = 1
+    level = "INFO"
+    disable-existing-loggers = false
+    handlers = {}
+    loggers = {}
+    drivers = ["console"]
+    pkg-ns = "{ \"\" = \"WARNING\", \"ai.backend\" = \"INFO\" }"
+
+    [logging.console]
+    format = "verbose"
+
+    [debug]
+    enabled = false
+    asyncio = false
+    log_events = false
+    log_stats = false
+
+    [otel]
+    enabled = false

@@ -1,0 +1,105 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-ai-appproxy-coordinator
+  namespace: backend-ai
+  labels:
+    app: backend-ai-appproxy-coordinator
+    component: app-proxy
+    version: "26.4.4rc9"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend-ai-appproxy-coordinator
+  template:
+    metadata:
+      labels:
+        app: backend-ai-appproxy-coordinator
+        component: app-proxy
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      initContainers:
+      - name: wait-postgres
+        image: postgres:16
+        command: ["sh", "-c", "until pg_isready -h postgres -p 5432; do sleep 2; done"]
+      containers:
+      - name: coordinator
+        image: lablup/backend.ai-appproxy-coordinator:26.4.4rc9
+        command:
+        - "python"
+        - "-m"
+        - "ai.backend.appproxy.coordinator.server"
+        - "-f"
+        - "/etc/backend.ai/proxy-coordinator.toml"
+        ports:
+        - containerPort: 10200
+          name: coordinator
+        env:
+        - name: APPPROXY_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: backend-ai-appproxy-secret
+              key: postgres-password
+        - name: BACKEND_AI_JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: backend-ai-appproxy-secret
+              key: jwt-secret
+        - name: BACKEND_AI_API_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: backend-ai-appproxy-secret
+              key: api-secret
+        - name: PERMIT_HASH_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: backend-ai-appproxy-secret
+              key: permit-hash-secret
+        volumeMounts:
+        - name: config
+          mountPath: /etc/backend.ai/proxy-coordinator.toml
+          subPath: proxy-coordinator.toml
+        - name: ipc
+          mountPath: /tmp/backend.ai/ipc
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 10200
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          failureThreshold: 3
+      volumes:
+      - name: config
+        configMap:
+          name: appproxy-coordinator-config
+      - name: ipc
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-ai-appproxy-coordinator
+  namespace: backend-ai
+  labels:
+    app: backend-ai-appproxy-coordinator
+spec:
+  type: NodePort
+  selector:
+    app: backend-ai-appproxy-coordinator
+  ports:
+  - name: coordinator
+    port: 10200
+    targetPort: 10200
+    nodePort: 30200
