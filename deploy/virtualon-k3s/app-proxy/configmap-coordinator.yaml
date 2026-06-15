@@ -56,7 +56,7 @@ data:
 
     [permit_hash]
     secret = "${PERMIT_HASH_SECRET}"
-    digest_mod = "SHA256"
+    digest_mod = "sha256"
 
     [logging]
     version = 1
@@ -65,7 +65,10 @@ data:
     handlers = {}
     loggers = {}
     drivers = ["console"]
-    pkg-ns = "{ \"\" = \"WARNING\", \"ai.backend\" = \"INFO\" }"
+
+    [logging.pkg-ns]
+    "" = "WARNING"
+    "ai.backend" = "INFO"
 
     [logging.console]
     format = "verbose"

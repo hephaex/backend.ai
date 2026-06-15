@@ -8,6 +8,9 @@ data:
     CREATE DATABASE appproxy;
     CREATE USER appproxy WITH ENCRYPTED PASSWORD 'appproxy';
     GRANT ALL PRIVILEGES ON DATABASE appproxy TO appproxy;
+    \connect appproxy
+    GRANT ALL ON SCHEMA public TO appproxy;
+    GRANT CREATE ON SCHEMA public TO appproxy;
 ---
 apiVersion: apps/v1
 kind: Deployment

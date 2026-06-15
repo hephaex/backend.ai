@@ -1,3 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: appproxy-worker-entrypoint
+  namespace: backend-ai
+data:
+  entrypoint.sh: |
+    #!/usr/bin/env python3
+    # Expand ${VAR} env vars in TOML before launching — python:3.13-slim has no envsubst
+    import os, re, sys
+
+    with open("/etc/backend.ai/proxy-worker.toml") as f:
+        content = f.read()
+
+    content = re.sub(r'\$\{([^}]+)\}', lambda m: os.environ.get(m.group(1), m.group(0)), content)
+
+    with open("/tmp/worker.toml", "w") as f:
+        f.write(content)
+
+    os.execv(sys.executable, [sys.executable, "-m",
+        "ai.backend.appproxy.worker.server", "-f", "/tmp/worker.toml"])
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -6,7 +28,7 @@ metadata:
   labels:
     app: backend-ai-appproxy-worker
     component: app-proxy
-    version: "26.4.4rc9"
+    version: "26.4.3"
 spec:
   replicas: 1
   selector:
@@ -32,13 +54,12 @@ spec:
         - "until curl -sf http://backend-ai-appproxy-coordinator:10200/health; do sleep 5; done"
       containers:
       - name: worker
-        image: lablup/backend.ai-appproxy-worker:26.4.4rc9
-        command:
-        - "python"
-        - "-m"
-        - "ai.backend.appproxy.worker.server"
-        - "-f"
-        - "/etc/backend.ai/proxy-worker.toml"
+        # local image built on VM110: pip install backend.ai-appproxy-worker==26.4.3
+        # build: docker build -t bai-appproxy-worker:26.4.3 -f Dockerfile.worker .
+        # import: docker save bai-appproxy-worker:26.4.3 | ctr -n k8s.io images import -
+        image: bai-appproxy-worker:26.4.3
+        imagePullPolicy: Never
+        command: ["python3", "/entrypoint/entrypoint.sh"]
         ports:
         - containerPort: 10201
           name: worker
@@ -53,10 +74,17 @@ spec:
             secretKeyRef:
               name: backend-ai-appproxy-secret
               key: api-secret
+        - name: PERMIT_HASH_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: backend-ai-appproxy-secret
+              key: permit-hash-secret
         volumeMounts:
         - name: config
           mountPath: /etc/backend.ai/proxy-worker.toml
           subPath: proxy-worker.toml
+        - name: entrypoint
+          mountPath: /entrypoint
         - name: ipc
           mountPath: /tmp/backend.ai/ipc
         resources:
@@ -70,6 +98,10 @@ spec:
       - name: config
         configMap:
           name: appproxy-worker-config
+      - name: entrypoint
+        configMap:
+          name: appproxy-worker-entrypoint
+          defaultMode: 0755
       - name: ipc
         emptyDir: {}
 ---
