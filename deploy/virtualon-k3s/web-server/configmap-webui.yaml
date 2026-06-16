@@ -9,17 +9,11 @@ data:
   config.toml: |
     [general]
     debug = false
+    apiEndpoint = "http://192.168.29.110:30880"
+    apiEndpointText = "VirtualOn Backend.AI"
 
     [wsproxy]
-    # AppProxy coordinator NodePort on VM110
     url = "http://192.168.29.110:30200"
 
-    [server]
-    # Backend.AI manager endpoint — set to the manager NodePort or LB IP
-    # Replace with actual manager address after deploying backend.ai-manager
-    endpoint = "http://192.168.29.110:30880"
-    endpoint_text = "VirtualOn Backend.AI"
-
     [plugin]
-    # Additional plugin paths (leave empty unless custom plugins are needed)
     plugins = {}
