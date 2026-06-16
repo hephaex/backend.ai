@@ -13,7 +13,7 @@ RUN ETCD_VER=v3.5.13 && \
 # Copy and install Backend.AI manager from source
 # Build context must be the repo root: docker build -f deploy/virtualon-k3s/manager/Dockerfile.manager .
 WORKDIR /build
-COPY requirements.txt .
+COPY requirements.txt VERSION ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY pyproject.toml .
