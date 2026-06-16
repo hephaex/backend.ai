@@ -86,7 +86,7 @@ spec:
   - name: http
     port: 8081
     targetPort: 8081
-    nodePort: 38080
+    nodePort: 30880
   - name: internal
     port: 18080
     targetPort: 18080

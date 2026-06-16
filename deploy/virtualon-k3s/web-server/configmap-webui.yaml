@@ -17,7 +17,7 @@ data:
     [server]
     # Backend.AI manager endpoint — set to the manager NodePort or LB IP
     # Replace with actual manager address after deploying backend.ai-manager
-    endpoint = "http://192.168.29.110:38080"
+    endpoint = "http://192.168.29.110:30880"
     endpoint_text = "VirtualOn Backend.AI"
 
     [plugin]
