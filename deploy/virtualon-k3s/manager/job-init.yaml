@@ -100,11 +100,11 @@ spec:
               f.write(alembic_ini)
           print("alembic.ini written")
 
-          # ── Step 4: dbschema oneshot ───────────────────────────────────────
+          # ── Step 4: schema oneshot ────────────────────────────────────────
           result = subprocess.run(
               [sys.executable, "-m", "ai.backend.manager.cli",
-               "dbschema", "oneshot",
-               "--alembic-config", "/tmp/alembic.ini"],
+               "schema", "oneshot",
+               "-f", "/tmp/alembic.ini"],
               check=True,
           )
-          print("dbschema oneshot complete")
+          print("schema oneshot complete")
