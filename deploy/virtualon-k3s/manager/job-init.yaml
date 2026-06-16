@@ -84,7 +84,7 @@ spec:
               [
                   "etcdctl", "--endpoints", ETCD,
                   "put", "local/config/redis/addr",
-                  "redis.backend-ai.svc.cluster.local:6379",
+                  "tcp://redis.backend-ai.svc.cluster.local:6379",
               ],
               check=True,
           )
