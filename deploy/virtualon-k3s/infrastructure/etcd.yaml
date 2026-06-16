@@ -19,23 +19,31 @@ spec:
     spec:
       containers:
       - name: etcd
-        image: bitnami/etcd:3.5
-        env:
-        - name: ALLOW_NONE_AUTHENTICATION
-          value: "yes"
-        - name: ETCD_ADVERTISE_CLIENT_URLS
-          value: "http://0.0.0.0:2379"
-        - name: ETCD_LISTEN_CLIENT_URLS
-          value: "http://0.0.0.0:2379"
+        # Same image used by Kubernetes itself — widely cached, always available
+        image: registry.k8s.io/etcd:3.5.13-0
+        command:
+        - etcd
+        - --data-dir=/var/etcd/data
+        - --listen-client-urls=http://0.0.0.0:2379
+        - --advertise-client-urls=http://0.0.0.0:2379
+        - --listen-peer-urls=http://0.0.0.0:2380
+        - --initial-advertise-peer-urls=http://0.0.0.0:2380
+        - --initial-cluster=default=http://0.0.0.0:2380
+        - --initial-cluster-state=new
+        - --initial-cluster-token=etcd-backend-ai
         ports:
         - containerPort: 2379
           name: client
         - containerPort: 2380
           name: peer
+        env:
+        - name: ETCDCTL_API
+          value: "3"
         readinessProbe:
           exec:
             command:
             - etcdctl
+            - --endpoints=http://127.0.0.1:2379
             - endpoint
             - health
           initialDelaySeconds: 5
@@ -49,7 +57,7 @@ spec:
             memory: 256Mi
         volumeMounts:
         - name: etcd-data
-          mountPath: /bitnami/etcd
+          mountPath: /var/etcd/data
       volumes:
       - name: etcd-data
         emptyDir: {}

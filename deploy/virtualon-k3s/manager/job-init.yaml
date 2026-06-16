@@ -23,17 +23,14 @@ spec:
             echo "waiting for postgres..."; sleep 3; done
           echo "postgres ready"
 
-      # 2. Wait for etcd
+      # 2. Wait for etcd (alpine + nc — no etcdctl needed for port check)
       - name: wait-etcd
-        image: bitnami/etcd:3.5
-        env:
-        - name: ETCDCTL_API
-          value: "3"
+        image: alpine:3.20
         command:
         - sh
         - -c
         - |
-          until etcdctl --endpoints=http://etcd.backend-ai.svc.cluster.local:2379 endpoint health; do
+          until nc -z etcd.backend-ai.svc.cluster.local 2379; do
             echo "waiting for etcd..."; sleep 3; done
           echo "etcd ready"
 
