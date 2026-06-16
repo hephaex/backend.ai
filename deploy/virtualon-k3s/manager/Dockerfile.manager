@@ -19,6 +19,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY pyproject.toml .
 COPY src/ ./src/
 RUN pip install --no-cache-dir --no-deps .
+# VERSION symlink breaks during pip install — write file directly into site-packages
+RUN python -c "\
+import pathlib, ai.backend.manager as m; \
+p = pathlib.Path(m.__file__).parent / 'VERSION'; \
+p.write_text(open('/build/VERSION').read())"
 
 RUN useradd -m -u 1000 bai
 RUN mkdir -p /var/run/backend.ai && chown -R bai:bai /var/run/backend.ai
