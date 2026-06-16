@@ -1,23 +1,27 @@
-FROM python:3.12-slim
+FROM python:3.13-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        gcc python3-dev libpq-dev postgresql-client curl \
+        gcc python3-dev libpq-dev postgresql-client curl git \
     && rm -rf /var/lib/apt/lists/*
 
-# etcdctl v3 for init job use
+# etcdctl v3 for init job use (static binary)
 RUN ETCD_VER=v3.5.13 && \
     curl -fsSL "https://github.com/etcd-io/etcd/releases/download/${ETCD_VER}/etcd-${ETCD_VER}-linux-amd64.tar.gz" \
-      | tar xz --strip-components=1 -C /usr/local/bin etcd-${ETCD_VER}-linux-amd64/etcdctl && \
+      | tar xz --strip-components=1 -C /usr/local/bin "etcd-${ETCD_VER}-linux-amd64/etcdctl" && \
     chmod +x /usr/local/bin/etcdctl
 
-# backend.ai-manager 26.4.3 is the latest stable on PyPI
-RUN pip install --no-cache-dir \
-    "backend.ai-manager==26.4.3" \
-    "asyncpg>=0.29"
+# Copy and install Backend.AI manager from source
+# Build context must be the repo root: docker build -f deploy/virtualon-k3s/manager/Dockerfile.manager .
+WORKDIR /build
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY pyproject.toml .
+COPY src/ ./src/
+RUN pip install --no-cache-dir --no-deps .
 
 RUN useradd -m -u 1000 bai
-RUN mkdir -p /etc/backend.ai /var/run/backend.ai && \
-    chown -R bai:bai /var/run/backend.ai
+RUN mkdir -p /var/run/backend.ai && chown -R bai:bai /var/run/backend.ai
 
 WORKDIR /var/run/backend.ai
 
