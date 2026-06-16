@@ -19,9 +19,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY pyproject.toml .
 COPY src/ ./src/
 RUN pip install --no-cache-dir --no-deps .
-# VERSION symlink breaks during pip install — copy directly by path
+# VERSION symlinks in each ai.backend.* sub-package break during pip install.
+# Write the version string into every installed ai/backend/* package directory.
 RUN SITE=$(python -c "import sysconfig; print(sysconfig.get_path('purelib'))") && \
-    cp /build/VERSION "${SITE}/ai/backend/manager/VERSION"
+    VERSION=$(cat /build/VERSION) && \
+    find "${SITE}/ai/backend" -name "__init__.py" | while read f; do \
+        echo "$VERSION" > "$(dirname "$f")/VERSION"; \
+    done
 
 RUN useradd -m -u 1000 bai
 RUN mkdir -p /var/run/backend.ai && chown -R bai:bai /var/run/backend.ai
