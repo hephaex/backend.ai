@@ -1,0 +1,56 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-ai-manager-config
+  namespace: backend-ai
+data:
+  manager.toml: |
+    [etcd]
+    namespace = "local"
+    addr = { host = "etcd.backend-ai.svc.cluster.local", port = 2379 }
+    user = ""
+    password = ""
+
+    [db]
+    type = "postgresql"
+    addr = { host = "postgres.backend-ai.svc.cluster.local", port = 5432 }
+    name = "backend"
+    user = "postgres"
+    pool-recycle = 50
+    pool-pre-ping = false
+    # password injected from secret via BACKEND_DB_PASSWORD env var
+
+    [manager]
+    num-proc = 2
+    service-addr = { host = "0.0.0.0", port = 8081 }
+    internal-addr = { host = "0.0.0.0", port = 18080 }
+    ssl-enabled = false
+    heartbeat-timeout = 40.0
+    pid-file = "/var/run/backend.ai/manager.pid"
+    disabled-plugins = []
+    hide-agents = true
+    agent-selection-resource-priority = ["cuda", "rocm", "tpu", "cpu", "mem"]
+
+    [docker-registry]
+    ssl-verify = false
+
+    [logging]
+    level = "INFO"
+    drivers = ["console"]
+
+    [logging.pkg-ns]
+    "" = "WARNING"
+    "aiotools" = "INFO"
+    "aiohttp" = "INFO"
+    "ai.backend" = "INFO"
+    "alembic" = "INFO"
+    "sqlalchemy" = "WARNING"
+
+    [logging.console]
+    colored = false
+    format = "verbose"
+
+  alembic.ini: |
+    [alembic]
+    script_location = ai.backend.manager.models:alembic
+    sqlalchemy.url = postgresql+asyncpg://postgres:%(DB_PASSWORD)s@postgres.backend-ai.svc.cluster.local:5432/backend

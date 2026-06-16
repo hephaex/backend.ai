@@ -1,0 +1,113 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: backend-ai-manager-init
+  namespace: backend-ai
+  annotations:
+    # Run once before deploying the manager.
+    # To re-run: kubectl -n backend-ai delete job backend-ai-manager-init && kubectl apply -f job-init.yaml
+spec:
+  ttlSecondsAfterFinished: 600
+  template:
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+      # 1. Wait for postgres
+      - name: wait-postgres
+        image: postgres:16
+        command:
+        - sh
+        - -c
+        - |
+          until pg_isready -h postgres.backend-ai.svc.cluster.local -p 5432 -U postgres; do
+            echo "waiting for postgres..."; sleep 3; done
+          echo "postgres ready"
+
+      # 2. Wait for etcd
+      - name: wait-etcd
+        image: bitnami/etcd:3.5
+        env:
+        - name: ETCDCTL_API
+          value: "3"
+        command:
+        - sh
+        - -c
+        - |
+          until etcdctl --endpoints=http://etcd.backend-ai.svc.cluster.local:2379 endpoint health; do
+            echo "waiting for etcd..."; sleep 3; done
+          echo "etcd ready"
+
+      containers:
+      - name: init
+        image: bai-manager:26.4.3
+        imagePullPolicy: Never
+        env:
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: backend-ai-appproxy-secret
+              key: postgres-password
+        - name: ETCDCTL_API
+          value: "3"
+        command:
+        - python
+        - -c
+        - |
+          import asyncio, os, subprocess, sys, textwrap
+
+          PG_PASS = os.environ["POSTGRES_PASSWORD"]
+          PG_HOST = "postgres.backend-ai.svc.cluster.local"
+          ETCD    = "http://etcd.backend-ai.svc.cluster.local:2379"
+
+          # ── Step 1: create 'backend' database ──────────────────────────────
+          import asyncpg
+
+          async def ensure_backend_db():
+              conn = await asyncpg.connect(
+                  host=PG_HOST, port=5432,
+                  user="postgres", password=PG_PASS,
+                  database="postgres",
+              )
+              try:
+                  exists = await conn.fetchval(
+                      "SELECT 1 FROM pg_database WHERE datname='backend'"
+                  )
+                  if exists:
+                      print("'backend' database already exists — skipping create")
+                  else:
+                      await conn.execute("CREATE DATABASE backend")
+                      print("'backend' database created")
+              finally:
+                  await conn.close()
+
+          asyncio.run(ensure_backend_db())
+
+          # ── Step 2: put redis addr into etcd ───────────────────────────────
+          subprocess.run(
+              [
+                  "etcdctl", "--endpoints", ETCD,
+                  "put", "local/config/redis/addr",
+                  "redis.backend-ai.svc.cluster.local:6379",
+              ],
+              check=True,
+          )
+          print("etcd key set: local/config/redis/addr")
+
+          # ── Step 3: write alembic.ini with resolved password ───────────────
+          alembic_ini = textwrap.dedent(f"""\
+              [alembic]
+              script_location = ai.backend.manager.models:alembic
+              sqlalchemy.url = postgresql+asyncpg://postgres:{PG_PASS}@{PG_HOST}:5432/backend
+          """)
+          with open("/tmp/alembic.ini", "w") as f:
+              f.write(alembic_ini)
+          print("alembic.ini written")
+
+          # ── Step 4: dbschema oneshot ───────────────────────────────────────
+          result = subprocess.run(
+              [sys.executable, "-m", "ai.backend.manager.cli",
+               "dbschema", "oneshot",
+               "--alembic-config", "/tmp/alembic.ini"],
+              check=True,
+          )
+          print("dbschema oneshot complete")
